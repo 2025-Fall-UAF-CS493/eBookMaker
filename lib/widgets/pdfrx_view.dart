@@ -1,28 +1,18 @@
 import 'package:flutter/widgets.dart';
-import 'package:pdfx/pdfx.dart';
+import 'package:pdfrx/pdfrx.dart';
 
-class Homepage extends StatefulWidget {
-  const Homepage({super.key});
+class PDFrx extends StatefulWidget {
+  const PDFrx({super.key});
 
   @override
-  State<Homepage> createState() => HomepageContent();
+  State<PDFrx> createState() => _State();
 }
 
-class HomepageContent extends State<Homepage> {
-
-  late final PdfController pdfController;
-
-  @override
-  void initState() {
-    super.initState();
-
-    pdfController = PdfController(
-      document: PdfDocument.openAsset('assets/sample.pdf'),
-    );
-  }
+class _State extends State<PDFrx> {
 
   @override
   Widget build(BuildContext context) {
-    return PdfView(controller: pdfController);
+    return PdfViewer.asset('assets/sample.pdf');
   }
+
 }
