@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 
-import 'my_home_page.dart';
+import 'homepage.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// Implements the root widget for the app itself
+class EbookMaker extends StatelessWidget {
+  const EbookMaker({super.key});
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'eBook Maker',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const Homepage(title: 'eBook Maker Home Page'),
     );
   }
 }
