@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'homepage.dart';
+import 'pdfx_view.dart';
 
 /// Implements the root widget for the app itself
 class EbookMaker extends StatelessWidget {
@@ -10,7 +10,7 @@ class EbookMaker extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'eBook Maker',
-      home: const Homepage(),
+      home: const PDFx(),
     );
   }
 }
