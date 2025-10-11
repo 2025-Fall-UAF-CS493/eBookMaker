@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:pdfrx/pdfrx.dart';
 
-class PDFrx extends StatefulWidget {
-  const PDFrx({super.key});
+class PDF extends StatefulWidget {
+  const PDF({super.key});
 
   @override
-  State<PDFrx> createState() => _State();
+  State<PDF> createState() => _State();
 }
 
-class _State extends State<PDFrx> {
+class _State extends State<PDF> {
 
   @override
   Widget build(BuildContext context) {

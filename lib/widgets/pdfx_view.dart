@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:pdfx/pdfx.dart';
 
-class PDFx extends StatefulWidget {
-  const PDFx({super.key});
+class PDF extends StatefulWidget {
+  const PDF({super.key});
 
   @override
-  State<PDFx> createState() => _State();
+  State<PDF> createState() => _State();
 }
 
-class _State extends State<PDFx> {
+class _State extends State<PDF> {
 
   late final PdfControllerPinch pdfControllerPinch;
 
