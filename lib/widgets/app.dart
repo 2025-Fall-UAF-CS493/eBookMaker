@@ -12,8 +12,81 @@ class EbookMaker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'eBook Maker',
-      home: const PDF(),
+      title: 'WOW FANCY APP YEAH',
+      home: const HomePage(), //PDF(),
     );
+  }
+}
+
+void _changeCursor() {
+  print("Pressed Select button");
+}
+
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Home Page"),
+      ),
+      body: PDFSelectionWindow()
+    );
+  }
+
+}
+
+class PDFSelectionWindow extends StatefulWidget {
+  const PDFSelectionWindow({super.key});
+
+  @override
+  State<PDFSelectionWindow> createState() => _PDFSelectState();
+}
+
+class _PDFSelectState extends State<PDFSelectionWindow> {
+  @override
+  void initState() {
+    super.initState();
+  }
+  bool selectMode = false;
+
+  void _updateCursor() {
+    setState(() {
+      selectMode = !selectMode;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column (
+        children: [
+          ElevatedButton(
+            child: selectMode? const Text("Selecting") : const Text("Select"),
+            onPressed: () async {
+              _updateCursor();
+
+            }),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: MouseRegion(
+                cursor: selectMode ? SystemMouseCursors.precise : SystemMouseCursors.basic,
+                child: PDF()
+              ),
+            ))
+        ]
+      );
   }
 }
