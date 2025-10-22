@@ -83,7 +83,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
               padding: const EdgeInsets.all(8.0),
               child: MouseRegion(
                 cursor: selectMode ? SystemMouseCursors.precise : SystemMouseCursors.basic,
-                child: PDF()
+                child: PDF(selectMode: selectMode) // Pass the selectMode state
               ),
             ))
         ]
