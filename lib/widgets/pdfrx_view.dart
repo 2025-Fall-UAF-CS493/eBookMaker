@@ -63,14 +63,14 @@ class _PDFState extends State<PDF> {
         child: IgnorePointer(
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.2),
+              color: Colors.blue.withValues(alpha: 0.2),
               border: Border.all(color: Colors.blue, width: 2),
             ),
           ),
         ),
       ),
     );
-    Overlay.of(context)?.insert(_selectionOverlay!);
+    Overlay.of(context).insert(_selectionOverlay!);
   }
 
   void _removeSelectionOverlay() {
@@ -79,55 +79,51 @@ class _PDFState extends State<PDF> {
   }
 
   Future<void> _handleSelection(Rect selRect) async {
-    // Hit test top-left and bottom-right to get PDF coordinates
-    final startHit = _controller.getPdfPageHitTestResult(
-      selRect.topLeft,
-      useDocumentLayoutCoordinates: true,
-    );
-    final endHit = _controller.getPdfPageHitTestResult(
-      selRect.bottomRight,
-      useDocumentLayoutCoordinates: true,
-    );
 
-    final page = startHit?.page ?? endHit?.page;
-    if (page == null) {
-      debugPrint('No PDF page found for selection.');
-      return;
+    if (_controller.isReady) {
+
+      final topLeft = _controller.getPdfPageHitTestResult(
+        selRect.topLeft,
+        useDocumentLayoutCoordinates: false,
+      );
+
+      final bottomRight = _controller.getPdfPageHitTestResult(
+        selRect.bottomRight,
+        useDocumentLayoutCoordinates: false,
+      );
+
+      if (topLeft != null && bottomRight != null && topLeft.page == bottomRight.page) {
+
+        // final left = topLeft.offset.x < dragEnd.offset.x ? topLeft.offset.x : dragEnd.offset.x;
+        // final right = topLeft.offset.x > dragEnd.offset.x ? topLeft.offset.x : dragEnd.offset.x;
+        // final bottom = topLeft.offset.y < dragEnd.offset.y ? topLeft.offset.y : dragEnd.offset.y;
+        // final top = topLeft.offset.y > dragEnd.offset.y ? topLeft.offset.y : dragEnd.offset.y;
+        //
+        // final pdfRect = PdfRect(left, top, right, bottom);
+        final pdfRect = PdfRect(topLeft.offset.x, topLeft.offset.y,
+                                bottomRight.offset.x, bottomRight.offset.y);
+
+        // Load page text
+        PdfPageText? pageText;
+        try {
+          pageText = await topLeft.page.loadText();
+        } catch (e) {
+          debugPrint('Failed to load page text: $e');
+          return;
+        }
+
+        // Find fragments inside rectangle
+        final fragments = pageText.fragments.where((frag) => pdfRect.overlaps(frag.bounds)).toList();
+
+        // Print selected text
+        if (fragments.isEmpty) {
+          debugPrint('No text selected.');
+        } else {
+          final selectedText = "<text>${fragments.map((f) => f.text).join('')}</text>";
+          debugPrint('Selected text: $selectedText');
+        }
+      }
     }
 
-    final pdfStart = startHit?.offset ?? PdfPoint(0, 0);
-    final pdfEnd = endHit?.offset ?? PdfPoint(0, 0);
-
-    // Normalize PDF rectangle: left <= right, bottom <= top
-    final left = pdfStart.x < pdfEnd.x ? pdfStart.x : pdfEnd.x;
-    final right = pdfStart.x > pdfEnd.x ? pdfStart.x : pdfEnd.x;
-    final bottom = pdfStart.y < pdfEnd.y ? pdfStart.y : pdfEnd.y;
-    final top = pdfStart.y > pdfEnd.y ? pdfStart.y : pdfEnd.y;
-
-    final pdfRect = PdfRect(left, top, right, bottom);
-
-    // Load page text
-    PdfPageText? pageText;
-    try {
-      pageText = await page.loadText();
-    } catch (e) {
-      debugPrint('Failed to load page text: $e');
-      return;
-    }
-    if (pageText == null) {
-      debugPrint('No text on this page.');
-      return;
-    }
-
-    // Find fragments inside rectangle
-    final fragments = pageText.fragments.where((frag) => pdfRect.overlaps(frag.bounds)).toList();
-
-    // Print selected text
-    if (fragments.isEmpty) {
-      debugPrint('No text selected.');
-    } else {
-      final selectedText = fragments.map((f) => f.text).join(' ');
-      debugPrint('Selected text: $selectedText');
-    }
   }
 }
