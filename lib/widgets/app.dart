@@ -61,10 +61,25 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
     super.initState();
   }
   bool selectMode = false;
+  int currentPage = 1;
 
   void _updateCursor() {
     setState(() {
       selectMode = !selectMode;
+    });
+  }
+
+  void _incPage() {
+    setState(() {
+      currentPage += 1;
+    });
+  }
+
+  void _decPage() {
+    setState(() {
+      if(currentPage >=1){
+        currentPage -=1;
+      }
     });
   }
 
@@ -78,12 +93,22 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
               _updateCursor();
 
             }),
+          ElevatedButton(
+            child: const Text("Next"),
+            onPressed: () {
+              _incPage();
+          },),
+          ElevatedButton(
+            child: const Text("Previous"),
+            onPressed: () {
+              _decPage();
+          },),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: MouseRegion(
                 cursor: selectMode ? SystemMouseCursors.precise : SystemMouseCursors.basic,
-                child: PDF(selectMode: selectMode) // Pass the selectMode state
+                child: PDF(selectMode: selectMode, currentPage: currentPage) // Pass the selectMode state
               ),
             ))
         ]
