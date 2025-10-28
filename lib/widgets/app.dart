@@ -77,7 +77,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
 
   void _decPage() {
     setState(() {
-      if(currentPage >=1){
+      if(currentPage >1){
         currentPage -=1;
       }
     });
