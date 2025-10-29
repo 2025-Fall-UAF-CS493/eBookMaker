@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 class PDF extends StatefulWidget {
-  const PDF({super.key});
+  final bool selectMode; // Track if select mode is on
+  final int currentPage; // Track page number
+  const PDF({super.key, required this.selectMode, required this.currentPage});
 
   @override
   State<PDF> createState() => _PDFState();
@@ -28,16 +30,20 @@ class _PDFState extends State<PDF> {
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanStart: (details) {
-                _dragStart = details.localPosition;
-                _dragCurrent = _dragStart;
-                _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!));
+                if (widget.selectMode) {
+                  _dragStart = details.localPosition;
+                  _dragCurrent = _dragStart;
+                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!));
+                }
               },
               onPanUpdate: (details) {
+                if (widget.selectMode) {
                 _dragCurrent = details.localPosition;
                 _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!));
+                }
               },
               onPanEnd: (_) async {
-                if (_dragStart != null && _dragCurrent != null) {
+                if (_dragStart != null && _dragCurrent != null && widget.selectMode) {
                   final rect = Rect.fromPoints(_dragStart!, _dragCurrent!);
                   await _handleSelection(rect);
                 }
@@ -52,14 +58,20 @@ class _PDFState extends State<PDF> {
     );
   }
 
-  void _updateSelectionOverlay(Rect rect) {
+  void _updateSelectionOverlay(Rect localRect) {
     _selectionOverlay?.remove();
+
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final globalTopLeft = renderBox.localToGlobal(localRect.topLeft);
+    final globalBottomRight = renderBox.localToGlobal(localRect.bottomRight);
+    final globalRect = Rect.fromPoints(globalTopLeft, globalBottomRight);
+
     _selectionOverlay = OverlayEntry(
       builder: (context) => Positioned(
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
+        left: globalRect.left,
+        top: globalRect.top,
+        width: globalRect.width,
+        height: globalRect.height,
         child: IgnorePointer(
           child: Container(
             decoration: BoxDecoration(
@@ -121,6 +133,7 @@ class _PDFState extends State<PDF> {
         } else {
           final selectedText = "<text>${fragments.map((f) => f.text).join('')}</text>";
           debugPrint('Selected text: $selectedText');
+          debugPrint('Selected area: $pdfRect');
         }
       }
     }
