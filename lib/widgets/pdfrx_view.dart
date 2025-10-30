@@ -19,6 +19,7 @@ class _PDFState extends State<PDF> {
   Offset? _dragStart;
   Offset? _dragCurrent;
   OverlayEntry? _selectionOverlay;
+  OverlayEntry? _entryLabel;
   
   // List to store all selections with their labels/data
   final List<TextSelection> _selections = [];
@@ -43,19 +44,20 @@ class _PDFState extends State<PDF> {
                 if (widget.selectMode) {
                   _dragStart = details.localPosition;
                   _dragCurrent = _dragStart;
-                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!));
+                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
                 }
               },
               onPanUpdate: (details) {
                 if (widget.selectMode) {
                   _dragCurrent = details.localPosition;
-                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!));
+                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
                 }
               },
               onPanEnd: (_) async {
                 if (_dragStart != null && _dragCurrent != null && widget.selectMode) {
                   final rect = Rect.fromPoints(_dragStart!, _dragCurrent!);
                   await _handleSelection(rect);
+                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), true);
                 }
                 // Keep overlay for labeling
                 _dragStart = null;
@@ -68,12 +70,12 @@ class _PDFState extends State<PDF> {
             ),
           ),
           // Label button that appears when a selection is made
-          if (_pendingSelection != null)
-            Positioned(
-              top: _pendingSelection!.globalRect.top, // Position at top with some margin (for now)
-              left: 20.0,
-              child: _buildLabelButton(),
-            ),
+          // if (_pendingSelection != null)
+          //   Positioned(
+          //     bottom: _pendingSelection!.,
+          //     left: _pendingSelection!.globalRect.left,
+          //     child: _buildLabelButton(),
+          //   ),
         ],
       ),
     );
@@ -112,8 +114,9 @@ class _PDFState extends State<PDF> {
     );
   }
 
-  void _updateSelectionOverlay(Rect localRect) {
+  void _updateSelectionOverlay(Rect localRect, bool end) {
     _selectionOverlay?.remove();
+    _entryLabel?.remove();
 
     // Convert local coordinates to global coordinates for overlay positioning
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
@@ -138,6 +141,19 @@ class _PDFState extends State<PDF> {
       ),
     );
     Overlay.of(context).insert(_selectionOverlay!);
+
+    if (end) {
+      _entryLabel = OverlayEntry(
+        builder: (context) => Positioned(
+          left: globalRect.left,
+          top: globalRect.top - 50,
+          child: _buildLabelButton(),
+        )
+      );
+      Overlay.of(context).insert(_entryLabel!);
+    } else {
+      _entryLabel = null;
+    }
   }
 
   Future<void> _handleSelection(Rect selRect) async {
@@ -219,6 +235,8 @@ class _PDFState extends State<PDF> {
     // Clear the selection overlay and pending selection when dialog is shown
     _selectionOverlay?.remove();
     _selectionOverlay = null;
+    _entryLabel?.remove();
+    _entryLabel = null;
     
     setState(() {
       _pendingSelection = null;
@@ -276,6 +294,8 @@ class _PDFState extends State<PDF> {
     });
     _selectionOverlay?.remove();
     _selectionOverlay = null;
+    _entryLabel?.remove();
+    _entryLabel = null;
     debugPrint('Selection cleared');
   }
 
