@@ -231,6 +231,8 @@ class _PDFState extends State<PDF> {
 
   // Shows popup for user to input a custom label for the selection
   void _showLabelDialog(TextSelection selection) {
+    const List<String> labels = ['Title', 'Caption', 'Paragraph', 'Author'];
+    String dropdownlabel = 'Title';
 
     // Clear the selection overlay and pending selection when dialog is shown
     _selectionOverlay?.remove();
@@ -245,25 +247,30 @@ class _PDFState extends State<PDF> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        String label = selection.label;
+        //String label = selection.label;
         return AlertDialog(
           title: const Text('Add Label'),
-          content: TextField(
-            autofocus: true,
-            decoration: const InputDecoration(hintText: 'Enter label for this selection'),
-            onChanged: (value) {
-              label = value;
-            },
-            onSubmitted: (value) {
+          content: DropdownButton(
+            value: dropdownlabel,
+            hint: Text("Select a category"),
+            items: 
+              labels.map((String labels) {
+                return DropdownMenuItem(value: labels, child: Text(labels));
+                }
+              ).toList(), 
+            onChanged: (String? newValue) {
+              setState(() {
+                dropdownlabel = newValue!;
+              });
               Navigator.of(context).pop();
-              _updateSelectionLabel(selection, value);
+              _updateSelectionLabel(selection, dropdownlabel);
             },
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _updateSelectionLabel(selection, label);
+                _updateSelectionLabel(selection, dropdownlabel);
               },
               child: const Text('OK'),
             ),
