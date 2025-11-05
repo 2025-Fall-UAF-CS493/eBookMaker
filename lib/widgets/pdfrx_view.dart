@@ -12,10 +12,11 @@ class PDF extends StatefulWidget {
 }
 
 class _PDFState extends State<PDF> {
+
   // Controller for managing PDF viewer operations
   final PdfViewerController _controller = PdfViewerController();
-  
-  // Selection state variables
+
+   // Selection state variables
   Offset? _dragStart;
   Offset? _dragCurrent;
   OverlayEntry? _selectionOverlay;
@@ -23,9 +24,10 @@ class _PDFState extends State<PDF> {
   
   // List to store all selections with their labels/data
   final List<TextSelection> _selections = [];
-
   // Track the most recent selection for labeling
   TextSelection? _pendingSelection;
+  // List to store all marker/highlight boxes with their data
+  final List<PdfMarker> _pdfMarkers = [];
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,9 @@ class _PDFState extends State<PDF> {
           PdfViewer.asset(
             'assets/sample.pdf',
             controller: _controller,
+            params: PdfViewerParams(
+              pagePaintCallbacks: [_paintMarkers],
+            ),
           ),
           // Gesture detector overlay for handling selections
           Positioned.fill(
@@ -69,96 +74,46 @@ class _PDFState extends State<PDF> {
               },
             ),
           ),
-          // Label button that appears when a selection is made
-          // if (_pendingSelection != null)
-          //   Positioned(
-          //     bottom: _pendingSelection!.,
-          //     left: _pendingSelection!.globalRect.left,
-          //     child: _buildLabelButton(),
-          //   ),
         ],
       ),
     );
   }
 
-  // Build the label button widget
-  Widget _buildLabelButton() {
-    return Container(
-      padding: const EdgeInsets.all(4.0),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 191, 113, 250),
-        borderRadius: BorderRadius.circular(4.0),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.label, color: Colors.white, size: 16),
-            onPressed: () {
-              _showLabelDialog(_pendingSelection!);
-            },
-          ),
-          Text(
-            'Add Label',
-            style: TextStyle(color: Colors.white, fontSize: 12),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white, size: 16),
-            onPressed: () {
-              _clearSelection();
-            },
-          ),
-        ],
-      ),
-    );
+  // Copied from Pdfrx src code (our packet is too old??)
+  Rect _pdfRectToRectInDocument(PdfRect pdfRect, {required PdfPage page, required Rect pageRect}) {
+    // This is the exact implementation from pdfrx_flutter.dart
+    final rotated = pdfRect.rotate(page.rotation.index, page);
+    final scale = pageRect.height / page.height;
+    return Rect.fromLTRB(
+      rotated.left * scale,
+      (page.height - rotated.top) * scale,
+      rotated.right * scale,
+      (page.height - rotated.bottom) * scale,
+    ).translate(pageRect.left, pageRect.top);
   }
 
-  void _updateSelectionOverlay(Rect localRect, bool end) {
-    _selectionOverlay?.remove();
-    _entryLabel?.remove();
+  // From Pdfrx github, shows the markers
+  void _paintMarkers(Canvas canvas, Rect pageRect, PdfPage page) {
+    final markers = _pdfMarkers.where((marker) => marker.pageNumber == page.pageNumber).toList();
+    if (markers.isEmpty) return;
+    
+    for (final marker in markers) {
+      final paint = Paint()
+        ..color = marker.color
+        ..style = PaintingStyle.fill;
 
-    // Convert local coordinates to global coordinates for overlay positioning
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final globalTopLeft = renderBox.localToGlobal(localRect.topLeft);
-    final globalBottomRight = renderBox.localToGlobal(localRect.bottomRight);
-    final globalRect = Rect.fromPoints(globalTopLeft, globalBottomRight);
-
-    _selectionOverlay = OverlayEntry(
-      builder: (context) => Positioned(
-        left: globalRect.left,
-        top: globalRect.top,
-        width: globalRect.width,
-        height: globalRect.height,
-        child: IgnorePointer(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.2),
-              border: Border.all(color: Colors.blue, width: 2),
-            ),
-          ),
-        ),
-      ),
-    );
-    Overlay.of(context).insert(_selectionOverlay!);
-
-    if (end) {
-      _entryLabel = OverlayEntry(
-        builder: (context) => Positioned(
-          left: globalRect.left,
-          top: globalRect.top - 50,
-          child: _buildLabelButton(),
-        )
+      final documentRect = _pdfRectToRectInDocument(
+        marker.bounds, 
+        page: page, 
+        pageRect: pageRect
       );
-      Overlay.of(context).insert(_entryLabel!);
-    } else {
-      _entryLabel = null;
+      canvas.drawRect(documentRect, paint);
     }
   }
 
   Future<void> _handleSelection(Rect selRect) async {
-    if (_controller.isReady) {
 
+    if (_controller.isReady) {
       // Convert screen coordinates to PDF page coordinates
       final topLeft = _controller.getPdfPageHitTestResult(
         selRect.topLeft,
@@ -170,15 +125,6 @@ class _PDFState extends State<PDF> {
       );
 
       if (topLeft != null && bottomRight != null && topLeft.page == bottomRight.page) {
-
-        // final left = topLeft.offset.x < dragEnd.offset.x ? topLeft.offset.x : dragEnd.offset.x;
-        // final right = topLeft.offset.x > dragEnd.offset.x ? topLeft.offset.x : dragEnd.offset.x;
-        // final bottom = topLeft.offset.y < dragEnd.offset.y ? topLeft.offset.y : dragEnd.offset.y;
-        // final top = topLeft.offset.y > dragEnd.offset.y ? topLeft.offset.y : dragEnd.offset.y;
-        //
-        // final pdfRect = PdfRect(left, top, right, bottom);
-
-        // Create PDF rectangle from selection coordinates
         final pdfRect = PdfRect(topLeft.offset.x, topLeft.offset.y,
                                 bottomRight.offset.x, bottomRight.offset.y);
 
@@ -203,30 +149,118 @@ class _PDFState extends State<PDF> {
             bounds: pdfRect,
             pageNumber: topLeft.page.pageNumber,
             globalRect: _getGlobalRect(selRect),
-            label: 'Selection ${_selections.length + 1}', // Default label
+            label: 'Selection ${_selections.length + 1}',
+          );
+          
+          // Create a new marker item
+          final newMarker = PdfMarker(
+            color: const Color.fromARGB(255, 45, 246, 239).withAlpha(70),
+            bounds: pdfRect,
+            pageNumber: topLeft.page.pageNumber,
           );
           
           // Set as pending selection to show label button
           // Keep the overlay visible until user clicks label button
           setState(() {
             _pendingSelection = newSelection;
+            _pdfMarkers.add(newMarker);
           });
           
-          // Print selected text
+          // Print selected text and markers
           debugPrint('Selected text: $selectedText');
-          debugPrint('Selected area: $pdfRect');
-          debugPrint('Total selections: ${_selections.length+1}');
+          debugPrint('Total selections: ${_selections.length + 1}');
+          debugPrint('Total markers: ${_pdfMarkers.length}');
         }
       }
     }
   }
 
-  // Converts local coordinates to global screen coordinates
-  Rect _getGlobalRect(Rect localRect) {
+  // Build the label button widget
+  Widget _buildLabelButton() {
+    return Container(
+      padding: const EdgeInsets.all(4.0),
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 191, 113, 250),
+        borderRadius: BorderRadius.circular(4.0),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.label, color: Colors.white, size: 16),
+            onPressed: () {
+              _showLabelDialog(_pendingSelection!);
+            },
+          ),
+          const Text(
+            'Add Label',
+            style: TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 16),
+            onPressed: () {
+              _clearSelection();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  
+  void _updateSelectionOverlay(Rect localRect, bool end) {
+    _selectionOverlay?.remove();
+    _entryLabel?.remove();
+
+    // Convert local coordinates to global coordinates for overlay positioning
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final globalTopLeft = renderBox.localToGlobal(localRect.topLeft);
     final globalBottomRight = renderBox.localToGlobal(localRect.bottomRight);
-    return Rect.fromPoints(globalTopLeft, globalBottomRight);
+    final globalRect = Rect.fromPoints(globalTopLeft, globalBottomRight);
+
+    _selectionOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        left: globalRect.left,
+        top: globalRect.top,
+        width: globalRect.width,
+        height: globalRect.height,
+        child: IgnorePointer(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.blue.withAlpha(50),
+              border: Border.all(color: Colors.blue, width: 2),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_selectionOverlay!);
+
+    if (end) {
+      _entryLabel = OverlayEntry(
+        builder: (context) => Positioned(
+          left: globalRect.left,
+          top: globalRect.top - 50,
+          child: _buildLabelButton(),
+        )
+      );
+      Overlay.of(context).insert(_entryLabel!);
+    } else {
+      _entryLabel = null;
+    }
+  }
+
+  // Update/add the label of a specific selection
+  void _updateSelectionLabel(TextSelection selection, String newLabel) {
+    setState(() {
+      _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
+    });
+    
+    debugPrint('All Selections:');
+    for (final selection in _selections) {
+      debugPrint('Label: ${selection.label}, Text: ${selection.text}');
+    }
   }
 
   // Shows popup for user to input a custom label for the selection
@@ -247,12 +281,11 @@ class _PDFState extends State<PDF> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        //String label = selection.label;
         return AlertDialog(
           title: const Text('Add Label'),
           content: DropdownButton(
             value: dropdownlabel,
-            hint: Text("Select a category"),
+            hint: const Text("Select a category"),
             items: 
               labels.map((String labels) {
                 return DropdownMenuItem(value: labels, child: Text(labels));
@@ -280,25 +313,15 @@ class _PDFState extends State<PDF> {
     );
   }
 
-  // Update/add the label of a specific selection
-  void _updateSelectionLabel(TextSelection selection, String newLabel) {
-    setState(() {
-      _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
-    });
-    
-    // Print all selections
-    debugPrint('All Selections:');
-    for (final selection in _selections) {
-      debugPrint('Label: ${selection.label}, Text: ${selection.text}');
-    }
-    
-  }
-
   // Clears selection and removes the selection overlay
   void _clearSelection() {
-    setState(() {
-      _pendingSelection = null;
-    });
+    if (_pendingSelection != null) {
+      setState(() {
+        _pdfMarkers.removeLast();
+        _pendingSelection = null;
+      });
+    }
+    
     _selectionOverlay?.remove();
     _selectionOverlay = null;
     _entryLabel?.remove();
@@ -306,6 +329,30 @@ class _PDFState extends State<PDF> {
     debugPrint('Selection cleared');
   }
 
+/* Maybe would want to implement as a clear button later ?
+  void _clearAllHighlights() {
+    setState(() {
+      _pdfMarkers.clear();
+      _selections.clear();
+      _pendingSelection = null;
+    });
+    debugPrint('All highlights and selections cleared');
+  }
+*/
+
+  // Converts local coordinates to global screen coordinates
+  Rect _getGlobalRect(Rect localRect) {
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final globalTopLeft = renderBox.localToGlobal(localRect.topLeft);
+    final globalBottomRight = renderBox.localToGlobal(localRect.bottomRight);
+    return Rect.fromPoints(globalTopLeft, globalBottomRight);
+  }
+
+  @override
+  void dispose() {
+    //_controller.dispose();
+    super.dispose();
+  }
 }
 
 // Data class to store text selections with labels
@@ -339,4 +386,17 @@ class TextSelection {
       label: label ?? this.label,
     );
   }
+}
+
+// Data class to store marker selections with info
+class PdfMarker {
+  final Color color;
+  final PdfRect bounds;
+  final int pageNumber;
+
+  PdfMarker({
+    required this.color,
+    required this.bounds,
+    required this.pageNumber,
+  });
 }
