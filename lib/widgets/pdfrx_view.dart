@@ -185,18 +185,18 @@ class _PDFState extends State<PDF> {
         // Load page text
         PdfPageText? pageText;
         try {
-          pageText = await topLeft.page.loadText();
+          pageText = await topLeft.page.loadStructuredText();
         } catch (e) {
           debugPrint('Failed to load page text: $e');
           return;
         }
 
-        // Find fragments inside rectangle
-        final fragments = pageText.fragments.where((frag) => pdfRect.overlaps(frag.bounds)).toList();
+        final fragments = pageText.fragments
+            .where((frag) => pdfRect.overlaps(frag.bounds))
+            .toList();
 
-        if (fragments.isNotEmpty) {
-          final selectedText = fragments.map((f) => f.text).join('');
-          
+        final selectedText = fragments.map((f) => f.text).join('');
+        
           // Create a new selection item
           final newSelection = TextSelection(
             text: selectedText,
@@ -219,7 +219,7 @@ class _PDFState extends State<PDF> {
         }
       }
     }
-  }
+  
 
   // Converts local coordinates to global screen coordinates
   Rect _getGlobalRect(Rect localRect) {
