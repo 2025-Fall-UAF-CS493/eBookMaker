@@ -42,7 +42,6 @@ class _HomePageState extends State<HomePage> {
       body: PDFSelectionWindow()
     );
   }
-
 }
 
 class PDFSelectionWindow extends StatefulWidget {
@@ -53,15 +52,16 @@ class PDFSelectionWindow extends StatefulWidget {
 }
 
 class _PDFSelectState extends State<PDFSelectionWindow> {
+  final controller = PdfViewerController();
+  final documentRef = ValueNotifier<PdfDocumentRef?>(null);
+  bool selectMode = false;
+  int currentPage = 1;
+
   @override
   void initState() {
     super.initState();
     openInitialFile();
   }
-  bool selectMode = false;
-  int currentPage = 1;
-
-  final documentRef = ValueNotifier<PdfDocumentRef?>(null);
 
   void _updateCursor() {
     setState(() {
