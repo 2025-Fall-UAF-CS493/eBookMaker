@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:file_selector/file_selector.dart' as fs;
-import 'package:flutter/foundation.dart';
-import 'package:pdfrx/pdfrx.dart';
 
 // Use **one** of the following:
 //
 //import 'pdfx_view.dart';  // Use platform-native   PDF viewer with pdfx
-import 'pdfrx_view.dart'; 
+import 'pdfrx_view.dart';   // Use platform-agnostic PDF viewer with pdfrx
 
 class EbookMaker extends StatelessWidget {
   const EbookMaker({super.key});
@@ -32,7 +29,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -42,6 +39,7 @@ class _HomePageState extends State<HomePage> {
       body: PDFSelectionWindow()
     );
   }
+
 }
 
 class PDFSelectionWindow extends StatefulWidget {
@@ -52,16 +50,12 @@ class PDFSelectionWindow extends StatefulWidget {
 }
 
 class _PDFSelectState extends State<PDFSelectionWindow> {
-  final controller = PdfViewerController();
-  final documentRef = ValueNotifier<PdfDocumentRef?>(null);
-  bool selectMode = false;
-  int currentPage = 1;
-
   @override
   void initState() {
     super.initState();
-    openInitialFile();
   }
+  bool selectMode = false;
+  int currentPage = 1;
 
   void _updateCursor() {
     setState(() {
@@ -69,79 +63,53 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
     });
   }
 
-  Future<void> openInitialFile({bool useProgressiveLoading = true}) async {
-    documentRef.value = PdfDocumentRefAsset('assets/sample.pdf', useProgressiveLoading: useProgressiveLoading);
+// Page functions, have no integrated yet
+/*
+  void _incPage() {
+    setState(() {
+      currentPage += 1;
+    });
   }
-  
-  Future<void> openFile({bool useProgressiveLoading = true}) async {
-    final file = await fs.openFile(
-      acceptedTypeGroups: [
-        fs.XTypeGroup(label: 'PDF files', extensions: ['pdf']),
-      ],
-    );
-    if (file == null) return;
-
-    if (kIsWeb) {
-      final bytes = await file.readAsBytes();
-      documentRef.value = PdfDocumentRefData(
-        bytes,
-        sourceName: 'web-open-file%${file.name}',
-        useProgressiveLoading: useProgressiveLoading,
-      );
-    } else {
-      documentRef.value = PdfDocumentRefFile(
-        file.path,
-        useProgressiveLoading: useProgressiveLoading,
-      );
-    }
+  void _decPage() {
+    setState(() {
+      if(currentPage >1){
+        currentPage -=1;
+      }
+    });
   }
-
-  static String? _fileName(String? path) {
-    if (path == null) return null;
-    final parts = path.split(RegExp(r'[\\/]'));
-    return parts.isEmpty ? path : parts.last;
-  }
-
-
+*/ 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ElevatedButton(
-          child: selectMode ? const Text("Selecting") : const Text("Select"),
-          onPressed: () async {
-            _updateCursor();
-          },
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: ValueListenableBuilder<PdfDocumentRef?>(
-                valueListenable: documentRef,
-                builder: (context, docRef, _) {
-                  return Text(
-                    _fileName(docRef?.key.sourceName) ?? 'No document loaded',
-                    style: const TextStyle(fontSize: 16),
-                  );
-                },
+    return Column (
+        children: [
+          ElevatedButton(
+            child: selectMode? const Text("Selecting") : const Text("Select"),
+            onPressed: () async {
+              _updateCursor();
+
+            }),
+          // Page functions, have no integrated yet
+          /*
+          ElevatedButton(
+            child: const Text("Next"),
+            onPressed: () {
+              _incPage();
+          },),
+          ElevatedButton(
+            child: const Text("Previous"),
+            onPressed: () {
+              _decPage();
+          },),
+          */
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: MouseRegion(
+                cursor: selectMode ? SystemMouseCursors.precise : SystemMouseCursors.basic,
+                child: PDF(selectMode: selectMode, currentPage: currentPage) // Pass the selectMode state
               ),
-            ),
-            const SizedBox(width: 10),
-            FilledButton(
-              onPressed: () => openFile(),
-              child: const Text('Open File'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: MouseRegion(
-            cursor:
-                selectMode ? SystemMouseCursors.precise : SystemMouseCursors.basic,
-            child: PDF(selectMode: selectMode, currentPage: currentPage),
-          ),
-        ),
-      ],
-    );
+            ))
+        ]
+      );
   }
 }
