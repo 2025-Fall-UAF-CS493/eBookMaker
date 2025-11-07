@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 class PDF extends StatefulWidget {
-  final bool selectMode; // Track if select mode is on
-  final int currentPage; // Track page number
-  // Has page number, maybe don't need????
-  const PDF({super.key, required this.selectMode, required this.currentPage}); 
+  final ValueNotifier<bool> selectModeNotifier;
+
+  const PDF({super.key, required this.selectModeNotifier}); 
 
   @override
   State<PDF> createState() => _PDFState();
@@ -14,6 +13,12 @@ class PDF extends StatefulWidget {
 class _PDFState extends State<PDF> {
   // Controller for managing PDF viewer operations
   final PdfViewerController _controller = PdfViewerController();
+  bool get selectMode => widget.selectModeNotifier.value;
+
+  @override
+  void initState() {
+    super.initState();
+  }
   
   // Selection state variables
   Offset? _dragStart;
@@ -41,20 +46,20 @@ class _PDFState extends State<PDF> {
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanStart: (details) {
-                if (widget.selectMode) {
+                if (selectMode) {
                   _dragStart = details.localPosition;
                   _dragCurrent = _dragStart;
                   _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
                 }
               },
               onPanUpdate: (details) {
-                if (widget.selectMode) {
+                if (selectMode) {
                   _dragCurrent = details.localPosition;
                   _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
                 }
               },
               onPanEnd: (_) async {
-                if (_dragStart != null && _dragCurrent != null && widget.selectMode) {
+                if (_dragStart != null && _dragCurrent != null && selectMode) {
                   final rect = Rect.fromPoints(_dragStart!, _dragCurrent!);
                   await _handleSelection(rect);
                   _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), true);
@@ -185,18 +190,18 @@ class _PDFState extends State<PDF> {
         // Load page text
         PdfPageText? pageText;
         try {
-          pageText = await topLeft.page.loadText();
+          pageText = await topLeft.page.loadStructuredText();
         } catch (e) {
           debugPrint('Failed to load page text: $e');
           return;
         }
 
-        // Find fragments inside rectangle
-        final fragments = pageText.fragments.where((frag) => pdfRect.overlaps(frag.bounds)).toList();
+        final fragments = pageText.fragments
+            .where((frag) => pdfRect.overlaps(frag.bounds))
+            .toList();
 
-        if (fragments.isNotEmpty) {
-          final selectedText = fragments.map((f) => f.text).join('');
-          
+        final selectedText = fragments.map((f) => f.text).join('');
+        
           // Create a new selection item
           final newSelection = TextSelection(
             text: selectedText,
@@ -208,9 +213,7 @@ class _PDFState extends State<PDF> {
           
           // Set as pending selection to show label button
           // Keep the overlay visible until user clicks label button
-          setState(() {
-            _pendingSelection = newSelection;
-          });
+          _pendingSelection = newSelection;
           
           // Print selected text
           debugPrint('Selected text: $selectedText');
@@ -219,7 +222,7 @@ class _PDFState extends State<PDF> {
         }
       }
     }
-  }
+  
 
   // Converts local coordinates to global screen coordinates
   Rect _getGlobalRect(Rect localRect) {
@@ -240,9 +243,7 @@ class _PDFState extends State<PDF> {
     _entryLabel?.remove();
     _entryLabel = null;
     
-    setState(() {
-      _pendingSelection = null;
-    });
+    _pendingSelection = null;
     
     showDialog(
       context: context,
@@ -259,9 +260,7 @@ class _PDFState extends State<PDF> {
                 }
               ).toList(), 
             onChanged: (String? newValue) {
-              setState(() {
-                dropdownlabel = newValue!;
-              });
+              dropdownlabel = newValue!;
               Navigator.of(context).pop();
               _updateSelectionLabel(selection, dropdownlabel);
             },
@@ -282,9 +281,7 @@ class _PDFState extends State<PDF> {
 
   // Update/add the label of a specific selection
   void _updateSelectionLabel(TextSelection selection, String newLabel) {
-    setState(() {
-      _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
-    });
+    _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
     
     // Print all selections
     debugPrint('All Selections:');
@@ -296,9 +293,7 @@ class _PDFState extends State<PDF> {
 
   // Clears selection and removes the selection overlay
   void _clearSelection() {
-    setState(() {
-      _pendingSelection = null;
-    });
+    _pendingSelection = null;
     _selectionOverlay?.remove();
     _selectionOverlay = null;
     _entryLabel?.remove();
