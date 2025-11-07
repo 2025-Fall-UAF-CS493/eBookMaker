@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-
-// Use **one** of the following:
-//
-//import 'pdfx_view.dart';  // Use platform-native   PDF viewer with pdfx
 import 'pdfrx_view.dart';   // Use platform-agnostic PDF viewer with pdfrx
 
 class EbookMaker extends StatelessWidget {
@@ -39,7 +35,6 @@ class _HomePageState extends State<HomePage> {
       body: PDFSelectionWindow()
     );
   }
-
 }
 
 class PDFSelectionWindow extends StatefulWidget {
@@ -66,9 +61,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
     super.dispose();
   }
 
-  //bool selectMode = false;
   int currentPage = 1;
-
 
   @override
   Widget build(BuildContext context) {
