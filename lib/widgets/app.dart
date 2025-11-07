@@ -50,65 +50,54 @@ class PDFSelectionWindow extends StatefulWidget {
 }
 
 class _PDFSelectState extends State<PDFSelectionWindow> {
+  late final ValueNotifier<bool> selectModeNotifier;
+  late final PDF pdfWidget;
+
   @override
   void initState() {
     super.initState();
+    selectModeNotifier = ValueNotifier(false);
+    pdfWidget = PDF(selectModeNotifier: selectModeNotifier);
   }
-  bool selectMode = false;
+
+  @override
+  void dispose() {
+    selectModeNotifier.dispose();
+    super.dispose();
+  }
+
+  //bool selectMode = false;
   int currentPage = 1;
 
-  void _updateCursor() {
-    setState(() {
-      selectMode = !selectMode;
-    });
-  }
 
-// Page functions, have no integrated yet
-/*
-  void _incPage() {
-    setState(() {
-      currentPage += 1;
-    });
-  }
-  void _decPage() {
-    setState(() {
-      if(currentPage >1){
-        currentPage -=1;
-      }
-    });
-  }
-*/ 
   @override
   Widget build(BuildContext context) {
     return Column (
         children: [
-          ElevatedButton(
-            child: selectMode? const Text("Selecting") : const Text("Select"),
-            onPressed: () async {
-              _updateCursor();
-
-            }),
-          // Page functions, have no integrated yet
-          /*
-          ElevatedButton(
-            child: const Text("Next"),
-            onPressed: () {
-              _incPage();
-          },),
-          ElevatedButton(
-            child: const Text("Previous"),
-            onPressed: () {
-              _decPage();
-          },),
-          */
+          ValueListenableBuilder<bool>(
+            valueListenable: selectModeNotifier,
+            builder: (_, selectMode, _) {
+              return ElevatedButton(
+                child: Text(selectMode ? "Selecting" : "Select"),
+                onPressed: () => selectModeNotifier.value = !selectMode,
+                );
+            }
+          ),
+          
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: MouseRegion(
-                cursor: selectMode ? SystemMouseCursors.precise : SystemMouseCursors.basic,
-                child: PDF(selectMode: selectMode, currentPage: currentPage) // Pass the selectMode state
-              ),
-            ))
+              child: ValueListenableBuilder<bool>(
+                valueListenable: selectModeNotifier,
+                builder: (_, selectMode, _) {
+                  return MouseRegion(
+                    cursor: selectModeNotifier.value ? SystemMouseCursors.precise : SystemMouseCursors.basic,
+                    child: pdfWidget, // Pass the selectMode state
+                  );
+                },
+              )
+            )
+          )
         ]
       );
   }
