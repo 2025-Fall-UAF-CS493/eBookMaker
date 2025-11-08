@@ -7,10 +7,6 @@ import 'package:pdfrx/pdfrx.dart';
 // import 'pdfx_view.dart';  // Platform-native PDF viewer
 import 'pdfrx_view.dart';    // Platform-agnostic PDF viewer
 
-void main() {
-  runApp(const EbookMaker());
-}
-
 class EbookMaker extends StatelessWidget {
   const EbookMaker({super.key});
 
