@@ -20,48 +20,94 @@ class _PDFState extends State<PDF> {
   OverlayEntry? _selectionOverlay;
   OverlayEntry? _entryLabel;
   final List<TextSelection> _selections = [];
+  // List to store all marker/highlight boxes with their data
+  final List<PdfMarker> _pdfMarkers = [];
+
+  // Track the most recent selection for labeling
   TextSelection? _pendingSelection;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        PdfViewer(
-          widget.documentRef!,
-          controller: _controller,
-        ),
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onPanStart: (details) {
-              if (selectMode) {
-                _dragStart = details.localPosition;
-                _dragCurrent = _dragStart;
-                _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
-              }
-            },
-            onPanUpdate: (details) {
-              if (selectMode) {
-                _dragCurrent = details.localPosition;
-                _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
-              }
-            },
-            onPanEnd: (_) async {
-              if (_dragStart != null && _dragCurrent != null && selectMode) {
-                final rect = Rect.fromPoints(_dragStart!, _dragCurrent!);
-                await _handleSelection(rect);
-                _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), true);
-              }
-              _dragStart = null;
-              _dragCurrent = null;
-            },
-            onDoubleTap: () => _clearSelection(),
+    return Scaffold(
+      body: Stack(
+        children: [
+          PdfViewer(
+            widget.documentRef!,
+            controller: _controller,
+            params: PdfViewerParams(
+              pagePaintCallbacks: [_paintMarkers],
+            ),
           ),
-        ),
-      ],
+          // Gesture detector overlay for handling selections
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (details) {
+                if (selectMode) {
+                  _dragStart = details.localPosition;
+                  _dragCurrent = _dragStart;
+                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
+                }
+              },
+              onPanUpdate: (details) {
+                if (selectMode) {
+                  _dragCurrent = details.localPosition;
+                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
+                }
+              },
+              onPanEnd: (_) async {
+                if (_dragStart != null && _dragCurrent != null && selectMode) {
+                  final rect = Rect.fromPoints(_dragStart!, _dragCurrent!);
+                  await _handleSelection(rect);
+                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), true);
+                }
+                // Keep overlay for labeling
+                _dragStart = null;
+                _dragCurrent = null;
+              },
+              onDoubleTap: () {
+                // Double tap to clear selections instead
+                _clearSelection();
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  // Copied from Pdfrx src code
+  Rect _pdfRectToRectInDocument(PdfRect pdfRect, {required PdfPage page, required Rect pageRect}) {
+    final rotated = pdfRect.rotate(page.rotation.index, page);
+    final scale = pageRect.height / page.height;
+    return Rect.fromLTRB(
+      rotated.left * scale,
+      (page.height - rotated.top) * scale,
+      rotated.right * scale,
+      (page.height - rotated.bottom) * scale,
+    ).translate(pageRect.left, pageRect.top);
+  }
+
+  // Shows the markers on PDF pages
+  void _paintMarkers(Canvas canvas, Rect pageRect, PdfPage page) {
+    final markers = _pdfMarkers.where((marker) => marker.pageNumber == page.pageNumber).toList();
+    if (markers.isEmpty) return;
+    
+    for (final marker in markers) {
+      final paint = Paint()
+        ..color = marker.color
+        ..style = PaintingStyle.fill;
+
+      final documentRect = _pdfRectToRectInDocument(
+        marker.bounds, 
+        page: page, 
+        pageRect: pageRect
+      );
+      canvas.drawRect(documentRect, paint);
+    }
+  }
+
+  // Build the label button widget
   Widget _buildLabelButton() {
     return Container(
       padding: const EdgeInsets.all(4.0),
@@ -76,7 +122,11 @@ class _PDFState extends State<PDF> {
             icon: const Icon(Icons.label, color: Colors.white, size: 16),
             onPressed: () => _showLabelDialog(_pendingSelection!),
           ),
-          const Text('Add Label', style: TextStyle(color: Colors.white, fontSize: 12)),
+          const Text(
+            'Add Label',
+            style: TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white, size: 16),
             onPressed: _clearSelection,
@@ -129,45 +179,64 @@ class _PDFState extends State<PDF> {
   }
 
   Future<void> _handleSelection(Rect selRect) async {
-    if (!_controller.isReady) return;
-
-    final topLeft = _controller.getPdfPageHitTestResult(
-      selRect.topLeft,
-      useDocumentLayoutCoordinates: false,
-    );
-    final bottomRight = _controller.getPdfPageHitTestResult(
-      selRect.bottomRight,
-      useDocumentLayoutCoordinates: false,
-    );
-
-    if (topLeft != null && bottomRight != null && topLeft.page == bottomRight.page) {
-      final pdfRect = PdfRect(
-        topLeft.offset.x, topLeft.offset.y,
-        bottomRight.offset.x, bottomRight.offset.y,
+    if (_controller.isReady) {
+      // Convert screen coordinates to PDF page coordinates
+      final topLeft = _controller.getPdfPageHitTestResult(
+        selRect.topLeft,
+        useDocumentLayoutCoordinates: false,
+      );
+      final bottomRight = _controller.getPdfPageHitTestResult(
+        selRect.bottomRight,
+        useDocumentLayoutCoordinates: false,
       );
 
-      PdfPageText? pageText;
-      try {
-        pageText = await topLeft.page.loadStructuredText();
-      } catch (e) {
-        debugPrint('Failed to load page text: $e');
-        return;
+      if (topLeft != null && bottomRight != null && topLeft.page == bottomRight.page) {
+        // Create PDF rectangle from selection coordinates
+        final pdfRect = PdfRect(topLeft.offset.x, topLeft.offset.y,
+                                bottomRight.offset.x, bottomRight.offset.y);
+
+      // Load page text
+        PdfPageText? pageText;
+        try {
+          pageText = await topLeft.page.loadStructuredText();
+        } catch (e) {
+          debugPrint('Failed to load page text: $e');
+          return;
+        }
+
+        final fragments = pageText.fragments
+            .where((frag) => pdfRect.overlaps(frag.bounds))
+            .toList();
+
+        final selectedText = fragments.map((f) => f.text).join('');
+        
+        if (fragments.isNotEmpty) {
+          // Create a new selection item
+          final newSelection = TextSelection(
+            text: selectedText,
+            bounds: pdfRect,
+            pageNumber: topLeft.page.pageNumber,
+            globalRect: _getGlobalRect(selRect),
+            label: 'Selection ${_selections.length + 1}', // Default label
+          );
+          
+          // Create a new marker item
+          final newMarker = PdfMarker(
+            color: const Color.fromARGB(255, 45, 246, 239).withAlpha(70),
+            bounds: pdfRect,
+            pageNumber: topLeft.page.pageNumber,
+          );
+          
+          // Set as pending selection to show label button
+          _pendingSelection = newSelection;
+          _pdfMarkers.add(newMarker);
+
+          // Print selected text and markers
+          debugPrint('Selected text: $selectedText');
+          debugPrint('Total selections: ${_selections.length+1}');
+          debugPrint('Total markers: ${_pdfMarkers.length}');
+        }
       }
-
-      final fragments = pageText.fragments.where((frag) => pdfRect.overlaps(frag.bounds)).toList();
-      final selectedText = fragments.map((f) => f.text).join('');
-
-      final newSelection = TextSelection(
-        text: selectedText,
-        bounds: pdfRect,
-        pageNumber: topLeft.page.pageNumber,
-        globalRect: _getGlobalRect(selRect),
-        label: 'Selection ${_selections.length + 1}',
-      );
-
-      _pendingSelection = newSelection;
-
-      debugPrint('Selected text: $selectedText');
     }
   }
 
@@ -188,6 +257,8 @@ class _PDFState extends State<PDF> {
     _entryLabel?.remove();
     _entryLabel = null;
     _pendingSelection = null;
+  
+    
 
     showDialog(
       context: context,
@@ -196,9 +267,12 @@ class _PDFState extends State<PDF> {
           title: const Text('Add Label'),
           content: DropdownButton(
             value: dropdownlabel,
-            items: labels
-                .map((label) => DropdownMenuItem(value: label, child: Text(label)))
-                .toList(),
+            hint: const Text("Select a category"),
+            items: 
+              labels.map((String labels) {
+                return DropdownMenuItem(value: labels, child: Text(labels));
+                }
+              ).toList(), 
             onChanged: (String? newValue) {
               dropdownlabel = newValue!;
               Navigator.of(context).pop();
@@ -220,6 +294,7 @@ class _PDFState extends State<PDF> {
   }
 
   void _updateSelectionLabel(TextSelection selection, String newLabel) {
+  
     _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
     debugPrint('All Selections:');
     for (final s in _selections) {
@@ -228,7 +303,12 @@ class _PDFState extends State<PDF> {
   }
 
   void _clearSelection() {
-    _pendingSelection = null;
+
+    if (_pendingSelection != null) {
+      _pdfMarkers.removeLast();
+      _pendingSelection = null;
+    }
+    
     _selectionOverlay?.remove();
     _selectionOverlay = null;
     _entryLabel?.remove();
@@ -267,4 +347,17 @@ class TextSelection {
       label: label ?? this.label,
     );
   }
+}
+
+// Data class to store marker selections with info
+class PdfMarker {
+  final Color color;
+  final PdfRect bounds;
+  final int pageNumber;
+
+  PdfMarker({
+    required this.color,
+    required this.bounds,
+    required this.pageNumber,
+  });
 }
