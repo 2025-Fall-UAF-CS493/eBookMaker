@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'pdfrx_view.dart';   // Use platform-agnostic PDF viewer with pdfrx
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
 import 'package:pdfrx/pdfrx.dart';
