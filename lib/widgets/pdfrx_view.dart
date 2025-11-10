@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
@@ -104,7 +106,26 @@ class _PDFState extends State<PDF> {
         pageRect: pageRect
       );
       canvas.drawRect(documentRect, paint);
+
+      final paragraph = _buildParagraph(marker.text, documentRect.width, fontSize: 10, color: Colors.black,);
+      canvas.drawParagraph(paragraph, Offset(documentRect.left + 3, documentRect.top - 12));
     }
+  }
+
+  ui.Paragraph _buildParagraph(String text, double maxWidth, {double fontSize = 14, Color color = const Color(0xFF000000)}) {
+    final builder = ui.ParagraphBuilder(
+      ui.ParagraphStyle(
+        textAlign: TextAlign.left,
+        fontSize: fontSize,
+        maxLines: 1,
+      ),
+    )
+      ..pushStyle(ui.TextStyle(color: color))
+      ..addText(text);
+
+    final paragraph = builder.build();
+    paragraph.layout(ui.ParagraphConstraints(width: maxWidth));
+    return paragraph;
   }
 
   // Build the label button widget
@@ -155,7 +176,7 @@ class _PDFState extends State<PDF> {
         child: IgnorePointer(
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.2),
+              color: const ui.Color.fromARGB(111, 33, 149, 243),
               border: Border.all(color: Colors.blue, width: 2),
             ),
           ),
@@ -220,16 +241,10 @@ class _PDFState extends State<PDF> {
             label: 'Selection ${_selections.length + 1}', // Default label
           );
           
-          // Create a new marker item
-          final newMarker = PdfMarker(
-            color: const Color.fromARGB(255, 45, 246, 239).withAlpha(70),
-            bounds: pdfRect,
-            pageNumber: topLeft.page.pageNumber,
-          );
+
           
           // Set as pending selection to show label button
           _pendingSelection = newSelection;
-          _pdfMarkers.add(newMarker);
 
           // Print selected text and markers
           debugPrint('Selected text: $selectedText');
@@ -253,46 +268,68 @@ class _PDFState extends State<PDF> {
     String dropdownlabel = 'Title';
 
     _selectionOverlay?.remove();
-    _selectionOverlay = null;
+    //_selectionOverlay = null;
     _entryLabel?.remove();
     _entryLabel = null;
-    _pendingSelection = null;
+    //_pendingSelection = null;
   
     
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add Label'),
-          content: DropdownButton(
-            value: dropdownlabel,
-            hint: const Text("Select a category"),
-            items: 
-              labels.map((String labels) {
-                return DropdownMenuItem(value: labels, child: Text(labels));
-                }
-              ).toList(), 
-            onChanged: (String? newValue) {
-              dropdownlabel = newValue!;
-              Navigator.of(context).pop();
-              _updateSelectionLabel(selection, dropdownlabel);
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _updateSelectionLabel(selection, dropdownlabel);
-              },
-              child: const Text('OK'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Add Label'),
+              content: DropdownButton(
+                value: dropdownlabel,
+                hint: const Text("Select a category"),
+                items: 
+                  labels.map((String labels) {
+                    return DropdownMenuItem(value: labels, child: Text(labels));
+                    }
+                  ).toList(), 
+                onChanged: (String? newValue) {
+                  setStateDialog(() { 
+                    dropdownlabel = newValue!;
+                  });
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _updateSelectionLabel(selection, dropdownlabel);
+                    _finalizeBox(selection, dropdownlabel);
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          }
         );
       },
     );
   }
 
+
+  void _finalizeBox(TextSelection selection, String newLabel) {
+    // Create a new marker item
+    final newMarker = PdfMarker(
+      color: const Color.fromARGB(255, 45, 246, 239).withAlpha(70),
+      bounds: selection.bounds,
+      pageNumber: selection.pageNumber,
+      text: newLabel
+    );
+    
+    _pdfMarkers.add(newMarker);
+    //_selectionOverlay?.remove();
+    _selectionOverlay = null;
+    _pendingSelection = null;
+  }
+
+  // Update/add the label of a specific selection
   void _updateSelectionLabel(TextSelection selection, String newLabel) {
   
     _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
@@ -354,10 +391,12 @@ class PdfMarker {
   final Color color;
   final PdfRect bounds;
   final int pageNumber;
+  final String text;
 
   PdfMarker({
     required this.color,
     required this.bounds,
     required this.pageNumber,
+    required this.text,
   });
 }
