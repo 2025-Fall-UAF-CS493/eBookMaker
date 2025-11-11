@@ -342,7 +342,7 @@ class _PDFState extends State<PDF> {
   void _clearSelection() {
 
     if (_pendingSelection != null) {
-      _pdfMarkers.removeLast();
+      //_pdfMarkers.removeLast();
       _pendingSelection = null;
     }
     
