@@ -138,9 +138,17 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                 if (docRef == null) {
                   return const Center(child: Text('No document loaded'));
                 }
-                return PDF(
-                  selectModeNotifier: selectModeNotifier,
-                  documentRef: docRef,
+                return ValueListenableBuilder<bool>(
+                  valueListenable: selectModeNotifier,
+                  builder: (_, selectMode, _) {
+                    return MouseRegion(
+                      cursor: selectMode ? SystemMouseCursors.precise : SystemMouseCursors.basic,
+                      child: PDF(
+                        selectModeNotifier: selectModeNotifier,
+                        documentRef: docRef,
+                      ),
+                    );
+                  },
                 );
               },
             ),
