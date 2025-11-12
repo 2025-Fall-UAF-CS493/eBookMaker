@@ -50,6 +50,16 @@ class _PDFState extends State<PDF> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant PDF oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Check if the document changed
+    if (widget.documentRef != oldWidget.documentRef) {
+      _clearAllSelections(); // Clear highlights and selections
+    }
+  }
+
   void _handleExportTrigger() {
     if (widget.exportTrigger?.value == true) {
       exportPairedToText();
@@ -380,6 +390,10 @@ class _PDFState extends State<PDF> {
     _entryLabel?.remove();
     _entryLabel = null;
     debugPrint('Selection cleared');
+  }
+
+  void _clearAllSelections(){
+    _pdfMarkers.clear();
   }
 
   
