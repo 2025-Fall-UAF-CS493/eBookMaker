@@ -46,6 +46,11 @@ class PDFSelectionWindow extends StatefulWidget {
 class _PDFSelectState extends State<PDFSelectionWindow> {
   late final ValueNotifier<bool> selectModeNotifier;
   final documentRef = ValueNotifier<PdfDocumentRef?>(null);
+  final ValueNotifier<bool> exportTrigger = ValueNotifier<bool>(false); 
+
+  void _triggerExport() {
+    exportTrigger.value = true; // trigger export in PDF widget
+  }
 
   @override
   void initState() {
@@ -57,6 +62,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   @override
   void dispose() {
     selectModeNotifier.dispose();
+    exportTrigger.dispose(); 
     super.dispose();
   }
 
@@ -102,7 +108,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
       children: [
         ValueListenableBuilder<bool>(
           valueListenable: selectModeNotifier,
-          builder: (_, selectMode, __) {
+          builder: (_, selectMode, _) {
             return ElevatedButton(
               child: Text(selectMode ? "Selecting" : "Select"),
               onPressed: () => selectModeNotifier.value = !selectMode,
@@ -121,6 +127,11 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                   );
                 },
               ),
+            ),
+            const SizedBox(width: 10),
+            FilledButton(
+              onPressed: _triggerExport,
+              child: const Text('Export'),
             ),
             const SizedBox(width: 10),
             FilledButton(
@@ -146,6 +157,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                       child: PDF(
                         selectModeNotifier: selectModeNotifier,
                         documentRef: docRef,
+                        exportTrigger: exportTrigger,
                       ),
                     );
                   },

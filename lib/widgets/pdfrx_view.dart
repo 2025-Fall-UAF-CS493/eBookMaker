@@ -1,13 +1,22 @@
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:file_selector/file_selector.dart' as fs;
+
 
 class PDF extends StatefulWidget {
   final ValueNotifier<bool> selectModeNotifier;
   final PdfDocumentRef? documentRef;
+  final ValueNotifier<bool>? exportTrigger; // Add this
 
-  const PDF({super.key, required this.selectModeNotifier, this.documentRef});
+  const PDF({
+    super.key, 
+    required this.selectModeNotifier, 
+    this.documentRef,
+    this.exportTrigger,
+  });
 
   @override
   State<PDF> createState() => _PDFState();
@@ -27,6 +36,27 @@ class _PDFState extends State<PDF> {
 
   // Track the most recent selection for labeling
   TextSelection? _pendingSelection;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for export triggers
+    widget.exportTrigger?.addListener(_handleExportTrigger);
+  }
+
+  @override
+  void dispose() {
+    widget.exportTrigger?.removeListener(_handleExportTrigger);
+    super.dispose();
+  }
+
+  void _handleExportTrigger() {
+    if (widget.exportTrigger?.value == true) {
+      exportPairedToText();
+      // Reset the trigger
+      widget.exportTrigger?.value = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +147,7 @@ class _PDFState extends State<PDF> {
       ui.ParagraphStyle(
         textAlign: TextAlign.left,
         fontSize: fontSize,
+        fontWeight: FontWeight.w900,
         maxLines: 1,
       ),
     )
@@ -216,7 +247,7 @@ class _PDFState extends State<PDF> {
         final pdfRect = PdfRect(topLeft.offset.x, topLeft.offset.y,
                                 bottomRight.offset.x, bottomRight.offset.y);
 
-      // Load page text
+        // Load page text
         PdfPageText? pageText;
         try {
           pageText = await topLeft.page.loadStructuredText();
@@ -240,8 +271,6 @@ class _PDFState extends State<PDF> {
             globalRect: _getGlobalRect(selRect),
             label: 'Selection ${_selections.length + 1}', // Default label
           );
-          
-
           
           // Set as pending selection to show label button
           _pendingSelection = newSelection;
@@ -273,8 +302,7 @@ class _PDFState extends State<PDF> {
     _entryLabel = null;
     //_pendingSelection = null;
   
-    
-
+    // Add label pop dialog
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -339,6 +367,7 @@ class _PDFState extends State<PDF> {
     }
   }
 
+  // Clear a selection
   void _clearSelection() {
 
     if (_pendingSelection != null) {
@@ -352,8 +381,77 @@ class _PDFState extends State<PDF> {
     _entryLabel = null;
     debugPrint('Selection cleared');
   }
+
+  
+
+  Future<void> exportPairedToText() async {
+    final text = StringBuffer();
+    
+    text.writeln('PDF SELECTIONS');
+    text.writeln('=' * 50);
+    
+    // Find the maximum length to iterate through both lists
+    final maxLength = _selections.length > _pdfMarkers.length ? _selections.length : _pdfMarkers.length;
+    
+    for (int i = 0; i < maxLength; i++) {
+      text.writeln('\nITEM ${i + 1}:');
+      text.writeln('-' * 30);
+      
+      // Add selection if it exists
+      if (i < _selections.length) {
+        final s = _selections[i];
+        text.writeln('SELECTION:');
+        text.writeln('  Label: ${s.label}');
+        text.writeln('  Page: ${s.pageNumber}');
+        text.writeln('  Text: "${s.text}"');
+        text.writeln('  Position: (${s.bounds.left}, ${s.bounds.top}) to (${s.bounds.right}, ${s.bounds.bottom})');
+      } else {
+        text.writeln('SELECTION: [None]');
+      }
+      
+      text.writeln(); // Empty line between selection and marker
+      
+      // Add marker if it exists 
+      // Maybe don't need since the selection already has positioning??? 
+      /*
+      if (i < _pdfMarkers.length) {
+        final m = _pdfMarkers[i];
+        text.writeln('MARKER:');
+        text.writeln('  Label: ${m.text}');
+        text.writeln('  Page: ${m.pageNumber}');
+        text.writeln('  Position: (${m.bounds.left}, ${m.bounds.top}) to (${m.bounds.right}, ${m.bounds.bottom})');
+      } else {
+        text.writeln('MARKER: [None]');
+      }
+      */
+      
+      if (i < maxLength - 1) {
+        text.writeln('\n${'=' * 50}');
+      }
+    }
+    
+    await _saveTextToFile(text.toString());
+  }
+
+  Future<void> _saveTextToFile(String text) async {
+    // For both mobile/desktop and web, use file_selector
+    final location = await fs.getSaveLocation(
+      suggestedName: 'pdf_annotations.txt',
+    );
+    
+    if (location != null) {
+      final file = fs.XFile.fromData(
+        Uint8List.fromList(utf8.encode(text)),
+        mimeType: 'text/plain',
+        name: 'pdf_annotations.txt',
+      );
+      await file.saveTo(location.path);
+    }
+  }
+
 }
 
+// Data class to store selections with info
 class TextSelection {
   final String text;
   final PdfRect bounds;
