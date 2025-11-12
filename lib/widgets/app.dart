@@ -74,6 +74,8 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   }
 
   Future<void> openFile({bool useProgressiveLoading = true}) async {
+    if (selectModeNotifier.value) return;
+    
     final file = await fs.openFile(
       acceptedTypeGroups: [
         fs.XTypeGroup(label: 'PDF files', extensions: ['pdf']),
