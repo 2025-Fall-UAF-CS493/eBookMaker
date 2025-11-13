@@ -393,6 +393,7 @@ class _PDFState extends State<PDF> {
   }
 
   void _clearAllSelections(){
+    _selections.clear();
     _pdfMarkers.clear();
   }
 
