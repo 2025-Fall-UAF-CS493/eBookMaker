@@ -32,7 +32,7 @@ class _PDFState extends State<PDF> {
   OverlayEntry? _entryLabel;
   final List<TextSelection> _selections = [];
   // List to store all marker/highlight boxes with their data
-  final List<PdfMarker> _pdfMarkers = [];
+  List<PdfMarker> _pdfMarkers = [];
 
   // Track the most recent selection for labeling
   TextSelection? _pendingSelection;
@@ -74,6 +74,18 @@ class _PDFState extends State<PDF> {
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
+
+              onTapDown: (details) async {
+                final tap = details.localPosition;
+
+                for (PdfMarker marker in _pdfMarkers) {
+                  if (marker.screenRect != null && marker.screenRect!.contains(tap)) {
+                    _onMarkerTapped(marker);
+                    return;
+                  }
+                }
+              },
+
               onPanStart: (details) {
                 if (selectMode) {
                   _dragStart = details.localPosition;
@@ -108,6 +120,11 @@ class _PDFState extends State<PDF> {
     );
   }
 
+  void _onMarkerTapped(PdfMarker marker) {
+    marker.selected = !marker.selected;
+    print(marker.text);
+  }
+
   // Copied from Pdfrx src code
   Rect _pdfRectToRectInDocument(PdfRect pdfRect, {required PdfPage page, required Rect pageRect}) {
     final rotated = pdfRect.rotate(page.rotation.index, page);
@@ -122,12 +139,12 @@ class _PDFState extends State<PDF> {
 
   // Shows the markers on PDF pages
   void _paintMarkers(Canvas canvas, Rect pageRect, PdfPage page) {
-    final markers = _pdfMarkers.where((marker) => marker.pageNumber == page.pageNumber).toList();
+    var markers = _pdfMarkers.where((marker) => marker.pageNumber == page.pageNumber);
     if (markers.isEmpty) return;
     
-    for (final marker in markers) {
+    for (PdfMarker marker in markers) {
       final paint = Paint()
-        ..color = marker.color
+        ..color = marker.selected ? const ui.Color.fromARGB(255, 20, 115, 112).withAlpha(70) : marker.color
         ..style = PaintingStyle.fill;
 
       final documentRect = _pdfRectToRectInDocument(
@@ -135,6 +152,9 @@ class _PDFState extends State<PDF> {
         page: page, 
         pageRect: pageRect
       );
+      
+      marker.screenRect = documentRect;
+
       canvas.drawRect(documentRect, paint);
 
       final paragraph = _buildParagraph(marker.text, documentRect.width, fontSize: 10, color: Colors.black,);
@@ -486,10 +506,13 @@ class TextSelection {
 
 // Data class to store marker selections with info
 class PdfMarker {
-  final Color color;
+  Color color;
   final PdfRect bounds;
   final int pageNumber;
   final String text;
+
+  bool selected = false;
+  Rect? screenRect;
 
   PdfMarker({
     required this.color,
