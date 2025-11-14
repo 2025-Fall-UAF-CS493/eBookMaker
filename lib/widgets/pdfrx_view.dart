@@ -175,7 +175,7 @@ class _PDFState extends State<PDF> {
       
       // Draw image label
       final paragraph = _buildParagraph(
-        '📷 ${imageAnnotation.label}', 
+        imageAnnotation.label, 
         documentRect.width, 
         fontSize: 10, 
         color: Colors.blue
@@ -593,7 +593,7 @@ class _PDFState extends State<PDF> {
     }
   }
 
-  // Add this method to convert BGRA to RGBA
+  // Convert BGRA to RGBA
   Uint8List _convertBgraToRgba(Uint8List bgraPixels) {
     // BGRA to RGBA conversion: swap Red and Blue channels
     final rgbaPixels = Uint8List(bgraPixels.length);
@@ -617,7 +617,6 @@ class _PDFState extends State<PDF> {
   }
 
   // Extract image from PDF using page rendering
-  // Extract image from PDF using page rendering
   Future<void> _extractImageFromSelection(PdfRect pdfRect, PdfPage page) async {
     try {
       debugPrint('Starting image render...');
@@ -629,18 +628,18 @@ class _PDFState extends State<PDF> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Invalid selection area - please select a larger area')),
           );
-        }
+          }
         return;
       }
 
-      // Render the selected area of the page to an image
-      final scale = 2.0; // For better quality
-      final width = (pdfRect.width * scale).toInt();
-      final height = (pdfRect.height * scale).toInt();
-      final x = pdfRect.left.toInt();
-      final y = pdfRect.top.toInt();
+
+      final pdfHeight = page.height;
+      final flippedY = pdfHeight - (pdfRect.bottom + pdfRect.height);
       
-      debugPrint('Rendering image: x=$x, y=$y, width=$width, height=$height');
+      final width = (pdfRect.width).toInt();
+      final height = (pdfRect.height).toInt();
+      final x = pdfRect.left.toInt();
+      final y = flippedY.toInt();
       
       final image = await page.render(
         x: x,
@@ -652,30 +651,22 @@ class _PDFState extends State<PDF> {
       if (image != null) {
         debugPrint('Image rendered successfully');
         
-        // Use the pixels property directly - it's already a Uint8List
         final pixels = image.pixels;
         
-        // Check if pixels is not null and not empty
         if (pixels != null && pixels.isNotEmpty) {
           debugPrint('Image pixels extracted: ${pixels.length} bytes');
           
-          // Debug the pixel format
-          // _debugPixelInfo(pixels, width, height);
-          
-          // Convert the raw BGRA pixels to a proper PNG image
           final pngBytes = await _encodeImageToPng(pixels, width, height);
           
           if (pngBytes != null) {
             debugPrint('PNG encoded successfully: ${pngBytes.length} bytes');
             
-            // Store the encoded PNG data
             _pendingImageData = {
-              'pixels': pngBytes, // Now storing PNG bytes instead of raw pixels
+              'pixels': pngBytes,
               'pdfRect': pdfRect,
               'pageNumber': page.pageNumber,
             };
             
-            // Show the image-specific label dialog
             _showImageLabelDialog();
           } else {
             debugPrint('Failed to encode PNG image');
@@ -712,13 +703,14 @@ class _PDFState extends State<PDF> {
       }
     }
   }
+
   // Show image-specific label dialog
   void _showImageLabelDialog() {
     const List<String> imageTypes = ['Figure', 'Diagram', 'Chart', 'Photo', 'Screenshot', 'Other'];
     String selectedImageType = 'Figure';
     String imageLabel = 'Image ${_imageAnnotations.length + 1}';
 
-    // Remove overlays BEFORE showing dialog
+    // Remove overlays before showing dialog
     _selectionOverlay?.remove();
     _selectionOverlay = null;
     _entryLabel?.remove();
