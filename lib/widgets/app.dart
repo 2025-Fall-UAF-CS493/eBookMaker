@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
 import 'package:pdfrx/pdfrx.dart';
-
-// Use one of the following:
-// import 'pdfx_view.dart';  // Platform-native PDF viewer
 import 'pdfrx_view.dart';    // Platform-agnostic PDF viewer
 
 class EbookMaker extends StatelessWidget {
@@ -43,10 +40,18 @@ class PDFSelectionWindow extends StatefulWidget {
   State<PDFSelectionWindow> createState() => _PDFSelectState();
 }
 
+class ImageData {
+    final Uint8List bytes;
+    final String name;
+    
+    ImageData({required this.bytes, required this.name});
+  }
+
 class _PDFSelectState extends State<PDFSelectionWindow> {
   late final ValueNotifier<bool> selectModeNotifier;
   final documentRef = ValueNotifier<PdfDocumentRef?>(null);
   final ValueNotifier<bool> exportTrigger = ValueNotifier<bool>(false); 
+  
 
   void _triggerExport() {
     exportTrigger.value = true; // trigger export in PDF widget
@@ -65,6 +70,8 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
     exportTrigger.dispose(); 
     super.dispose();
   }
+
+
 
   int currentPage = 1;
 
@@ -133,7 +140,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
             const SizedBox(width: 10),
             FilledButton(
               onPressed: _triggerExport,
-              child: const Text('Export'),
+              child: const Text('Export'), 
             ),
             const SizedBox(width: 10),
             FilledButton(
