@@ -76,10 +76,13 @@ class _PDFState extends State<PDF> {
               behavior: HitTestBehavior.translucent,
 
               onTapDown: (details) async {
-                final tap = details.localPosition;
+                final pdfTap = _controller.getPdfPageHitTestResult(
+                  details.localPosition,
+                  useDocumentLayoutCoordinates: false,
+                );
 
                 for (PdfMarker marker in _pdfMarkers) {
-                  if (marker.screenRect != null && marker.screenRect!.contains(tap)) {
+                  if (pdfTap != null && marker.bounds.containsPoint(pdfTap.offset)) {
                     _onMarkerTapped(marker);
                     return;
                   }
@@ -152,8 +155,6 @@ class _PDFState extends State<PDF> {
         page: page, 
         pageRect: pageRect
       );
-      
-      marker.screenRect = documentRect;
 
       canvas.drawRect(documentRect, paint);
 
@@ -512,7 +513,6 @@ class PdfMarker {
   final String text;
 
   bool selected = false;
-  Rect? screenRect;
 
   PdfMarker({
     required this.color,
