@@ -280,6 +280,7 @@ class _PDFState extends State<PDF> {
             pageNumber: topLeft.page.pageNumber,
             globalRect: _getGlobalRect(selRect),
             label: 'Selection ${_selections.length + 1}', // Default label
+            language: 'Undefined' // Default langauge
           );
           
           // Set as pending selection to show label button
@@ -305,6 +306,8 @@ class _PDFState extends State<PDF> {
   void _showLabelDialog(TextSelection selection) {
     const List<String> labels = ['Title', 'Caption', 'Paragraph', 'Author'];
     String dropdownlabel = 'Title';
+    const List<String> languages = ['English', 'Not English', 'Other'];
+    String dropdownLanguage = 'English';
 
     _selectionOverlay?.remove();
     //_selectionOverlay = null;
@@ -320,26 +323,54 @@ class _PDFState extends State<PDF> {
           builder: (context, setStateDialog) {
             return AlertDialog(
               title: const Text('Add Label'),
-              content: DropdownButton(
-                value: dropdownlabel,
-                hint: const Text("Select a category"),
-                items: 
-                  labels.map((String labels) {
-                    return DropdownMenuItem(value: labels, child: Text(labels));
-                    }
-                  ).toList(), 
-                onChanged: (String? newValue) {
-                  setStateDialog(() { 
-                    dropdownlabel = newValue!;
-                  });
-                },
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Category dropdown
+                  const Text('Category:'),
+                  DropdownButton<String>(
+                    value: dropdownlabel,
+                    isExpanded: true,
+                    items: labels.map((String label) {
+                      return DropdownMenuItem(
+                        value: label,
+                        child: Text(label),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setStateDialog(() {
+                        dropdownlabel = newValue!;
+                      });
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Language dropdown
+                  const Text('Language:'),
+                  DropdownButton<String>(
+                    value: dropdownLanguage,
+                    isExpanded: true,
+                    items: languages.map((String language) {
+                      return DropdownMenuItem(
+                        value: language,
+                        child: Text(language),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setStateDialog(() {
+                        dropdownLanguage = newValue!;
+                      });
+                    },
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _updateSelectionLabel(selection, dropdownlabel);
-                    _finalizeBox(selection, dropdownlabel);
+                    _updateSelectionLabel(selection, dropdownlabel, dropdownLanguage);
+                    _finalizeBox(selection, dropdownlabel, dropdownLanguage);
                   },
                   child: const Text('OK'),
                 ),
@@ -350,9 +381,10 @@ class _PDFState extends State<PDF> {
       },
     );
   }
+      
 
 
-  void _finalizeBox(TextSelection selection, String newLabel) {
+  void _finalizeBox(TextSelection selection, String newLabel, String language) {
     // Create a new marker item
     final newMarker = PdfMarker(
       color: const Color.fromARGB(255, 45, 246, 239).withAlpha(70),
@@ -368,9 +400,11 @@ class _PDFState extends State<PDF> {
   }
 
   // Update/add the label of a specific selection
-  void _updateSelectionLabel(TextSelection selection, String newLabel) {
+  void _updateSelectionLabel(TextSelection selection, String newLabel, String language) {
   
-    _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
+    _selections.add(selection.copyWith(
+      label: newLabel.isEmpty ? 'Unlabeled' : newLabel,
+      language: language));
     debugPrint('All Selections:');
     for (final s in _selections) {
       debugPrint('Label: ${s.label}, Text: ${s.text}');
@@ -417,6 +451,7 @@ class _PDFState extends State<PDF> {
         final s = _selections[i];
         text.writeln('SELECTION:');
         text.writeln('  Label: ${s.label}');
+        text.writeln('  Language: ${s.language}'); 
         text.writeln('  Page: ${s.pageNumber}');
         text.writeln('  Text: "${s.text}"');
         text.writeln('  Position: (${s.bounds.left}, ${s.bounds.top}) to (${s.bounds.right}, ${s.bounds.bottom})');
@@ -473,6 +508,7 @@ class TextSelection {
   final int pageNumber;
   final Rect globalRect;
   String label;
+  String language;
 
   TextSelection({
     required this.text,
@@ -480,6 +516,7 @@ class TextSelection {
     required this.pageNumber,
     required this.globalRect,
     required this.label,
+    required this.language,
   });
 
   TextSelection copyWith({
@@ -488,6 +525,7 @@ class TextSelection {
     int? pageNumber,
     Rect? globalRect,
     String? label,
+    String? language,
   }) {
     return TextSelection(
       text: text ?? this.text,
@@ -495,6 +533,7 @@ class TextSelection {
       pageNumber: pageNumber ?? this.pageNumber,
       globalRect: globalRect ?? this.globalRect,
       label: label ?? this.label,
+      language: language ?? this.language, 
     );
   }
 }
