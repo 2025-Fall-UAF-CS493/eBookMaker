@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
 import 'package:pdfrx/pdfrx.dart';
-import 'pdfrx_view.dart';    // Platform-agnostic PDF viewer
+import 'pdfrx_view.dart';
 
 class EbookMaker extends StatelessWidget {
   const EbookMaker({super.key});
@@ -40,22 +40,10 @@ class PDFSelectionWindow extends StatefulWidget {
   State<PDFSelectionWindow> createState() => _PDFSelectState();
 }
 
-class ImageData {
-    final Uint8List bytes;
-    final String name;
-    
-    ImageData({required this.bytes, required this.name});
-  }
-
 class _PDFSelectState extends State<PDFSelectionWindow> {
   late final ValueNotifier<bool> selectModeNotifier;
   final documentRef = ValueNotifier<PdfDocumentRef?>(null);
   final ValueNotifier<bool> exportTrigger = ValueNotifier<bool>(false); 
-  
-
-  void _triggerExport() {
-    exportTrigger.value = true; // trigger export in PDF widget
-  }
 
   @override
   void initState() {
@@ -67,17 +55,16 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   @override
   void dispose() {
     selectModeNotifier.dispose();
-    exportTrigger.dispose(); 
+    exportTrigger.dispose();
     super.dispose();
   }
 
-
-
-  int currentPage = 1;
+  void _triggerExport() {
+    exportTrigger.value = true;
+  }
 
   Future<void> openInitialFile({bool useProgressiveLoading = true}) async {
-    documentRef.value =
-        PdfDocumentRefAsset('assets/sample.pdf', useProgressiveLoading: useProgressiveLoading);
+    documentRef.value = PdfDocumentRefAsset('assets/sample.pdf', useProgressiveLoading: useProgressiveLoading);
   }
 
   Future<void> openFile({bool useProgressiveLoading = true}) async {
@@ -144,7 +131,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
             ),
             const SizedBox(width: 10),
             FilledButton(
-              onPressed: () => openFile(),
+              onPressed: openFile,
               child: const Text('Open File'),
             ),
           ],
