@@ -4,12 +4,12 @@ import 'package:pdfrx/pdfrx.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:file_selector/file_selector.dart' as fs;
-
+import 'package:image/image.dart' as img;
 
 class PDF extends StatefulWidget {
   final ValueNotifier<bool> selectModeNotifier;
   final PdfDocumentRef? documentRef;
-  final ValueNotifier<bool>? exportTrigger; // Add this
+  final ValueNotifier<bool>? exportTrigger; 
 
   const PDF({
     super.key, 
@@ -23,24 +23,33 @@ class PDF extends StatefulWidget {
 }
 
 class _PDFState extends State<PDF> {
+  // Controller and State vars
   final PdfViewerController _controller = PdfViewerController();
   bool get selectMode => widget.selectModeNotifier.value;
 
+  // Selection state
   Offset? _dragStart;
   Offset? _dragCurrent;
   OverlayEntry? _selectionOverlay;
   OverlayEntry? _entryLabel;
-  final List<TextSelection> _selections = [];
-  // List to store all marker/highlight boxes with their data
-  final List<PdfMarker> _pdfMarkers = [];
 
-  // Track the most recent selection for labeling
+  // Data collections
+  final List<TextSelection> _selections = [];
+  final List<PdfMarker> _pdfMarkers = [];
+  final List<ImageAnnotation> _imageAnnotations = [];
+
+  // Pending operations
   TextSelection? _pendingSelection;
+  Map<String, dynamic>? _pendingSelectionData;
+  Map<String, dynamic>? _pendingImageData;
+
+  // =========================
+  // === LIFECYCLE METHODS ===
+  // =========================
 
   @override
   void initState() {
     super.initState();
-    // Listen for export triggers
     widget.exportTrigger?.addListener(_handleExportTrigger);
   }
 
@@ -53,18 +62,8 @@ class _PDFState extends State<PDF> {
   @override
   void didUpdateWidget(covariant PDF oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // Check if the document changed
     if (widget.documentRef != oldWidget.documentRef) {
-      _clearAllSelections(); // Clear highlights and selections
-    }
-  }
-
-  void _handleExportTrigger() {
-    if (widget.exportTrigger?.value == true) {
-      exportPairedToText();
-      // Reset the trigger
-      widget.exportTrigger?.value = false;
+      _clearAllSelections();
     }
   }
 
@@ -77,10 +76,9 @@ class _PDFState extends State<PDF> {
             widget.documentRef!,
             controller: _controller,
             params: PdfViewerParams(
-              pagePaintCallbacks: [_paintMarkers],
+              pagePaintCallbacks: [_paintTextMarkers, _paintImages],
             ),
           ),
-          // Gesture detector overlay for handling selections
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
@@ -103,22 +101,155 @@ class _PDFState extends State<PDF> {
                   await _handleSelection(rect);
                   _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), true);
                 }
-                // Keep overlay for labeling
                 _dragStart = null;
                 _dragCurrent = null;
               },
-              onDoubleTap: () {
-                // Double tap to clear selections instead
-                _clearSelection();
-              },
+              onDoubleTap: _clearSelection,
             ),
           ),
         ],
       ),
     );
   }
+  
+  // ==========================
+  // === SELECTION HANDLING ===
+  // ==========================
 
-  // Copied from Pdfrx src code
+  // Handles text extraction with image extract opportunity
+  Future<void> _handleSelection(Rect selRect) async {
+    if (!_controller.isReady) {
+      _showError('PDF controller not ready');
+      return;
+    }
+
+    final topLeft = _controller.getPdfPageHitTestResult(selRect.topLeft, useDocumentLayoutCoordinates: false);
+    final bottomRight = _controller.getPdfPageHitTestResult(selRect.bottomRight, useDocumentLayoutCoordinates: false);
+
+    if (topLeft == null || bottomRight == null || topLeft.page != bottomRight.page) {
+      _showError('Invalid selection area');
+      return;
+    }
+
+    final pdfRect = PdfRect(topLeft.offset.x, topLeft.offset.y, bottomRight.offset.x, bottomRight.offset.y);
+    
+    _pendingSelectionData = {
+      'pdfRect': pdfRect,
+      'page': topLeft.page,
+      'selRect': selRect,
+    };
+
+    try {
+      final pageText = await topLeft.page.loadStructuredText();
+      final fragments = pageText.fragments.where((frag) => pdfRect.overlaps(frag.bounds)).toList();
+      final selectedText = fragments.map((f) => f.text).join('');
+      
+      if (fragments.isNotEmpty) {
+        _pendingSelection = TextSelection(
+          text: selectedText,
+          bounds: pdfRect,
+          pageNumber: topLeft.page.pageNumber,
+          globalRect: _getGlobalRect(selRect),
+          label: 'Selection ${_selections.length + 1}',
+          language: 'Undefined'
+        );
+      }
+    } catch (e) {
+      // Continue for image extraction even if text loading fails
+    }
+  }
+  
+  // Handles image extraction
+  void _handleImageExtraction() async {
+    if (_pendingSelectionData == null) {
+      _showError('No selection data available for image extraction');
+      return;
+    }
+
+    _clearOverlays();
+    await _extractImageFromSelection(
+      _pendingSelectionData!['pdfRect'] as PdfRect,
+      _pendingSelectionData!['page'] as PdfPage,
+    );
+  }
+  
+  // Clear a selection
+  void _clearSelection() {
+    _clearOverlays();
+    _pendingSelection = null;
+    _pendingImageData = null;
+    _pendingSelectionData = null;
+  }
+
+  // Clear all selections
+  void _clearAllSelections() {
+    _selections.clear();
+    _pdfMarkers.clear();
+    _imageAnnotations.clear();
+  }
+
+  // ==================================================
+  // === OVERLAY MANAGEMENT & COORDINATE CONVERSION ===
+  // ==================================================
+
+  // Shows selection box and label popup
+  void _updateSelectionOverlay(Rect localRect, bool end) {
+    _clearOverlays();
+
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final globalRect = Rect.fromPoints(
+      renderBox.localToGlobal(localRect.topLeft),
+      renderBox.localToGlobal(localRect.bottomRight),
+    );
+
+    _selectionOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        left: globalRect.left,
+        top: globalRect.top,
+        width: globalRect.width,
+        height: globalRect.height,
+        child: IgnorePointer(
+          child: Container(
+            decoration: BoxDecoration(
+              color: const ui.Color.fromARGB(108, 180, 146, 242),
+              border: Border.all(color: const ui.Color.fromARGB(255, 129, 95, 244), width: 2),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_selectionOverlay!);
+
+    if (end) {
+      _entryLabel = OverlayEntry(
+        builder: (context) => Positioned(
+          left: globalRect.left,
+          top: globalRect.top - 50,
+          child: _buildDualLabelButton(),
+        ),
+      );
+      Overlay.of(context).insert(_entryLabel!);
+    }
+  }
+
+  // Clear all overlays
+  void _clearOverlays() {
+    _selectionOverlay?.remove();
+    _selectionOverlay = null;
+    _entryLabel?.remove();
+    _entryLabel = null;
+  }
+
+  // Convert Flutter widget rect -> Global screen rect
+  Rect _getGlobalRect(Rect localRect) {
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    return Rect.fromPoints(
+      renderBox.localToGlobal(localRect.topLeft),
+      renderBox.localToGlobal(localRect.bottomRight),
+    );
+  }
+  
+  // Convert PDF rect -> Flutter widget rect
   Rect _pdfRectToRectInDocument(PdfRect pdfRect, {required PdfPage page, required Rect pageRect}) {
     final rotated = pdfRect.rotate(page.rotation.index, page);
     final scale = pageRect.height / page.height;
@@ -130,28 +261,78 @@ class _PDFState extends State<PDF> {
     ).translate(pageRect.left, pageRect.top);
   }
 
-  // Shows the markers on PDF pages
-  void _paintMarkers(Canvas canvas, Rect pageRect, PdfPage page) {
-    final markers = _pdfMarkers.where((marker) => marker.pageNumber == page.pageNumber).toList();
-    if (markers.isEmpty) return;
-    
-    for (final marker in markers) {
-      final paint = Paint()
-        ..color = marker.color
-        ..style = PaintingStyle.fill;
+  // =====================================
+  // === UI BUILDING METHODS & DIALOGS ===
+  // =====================================
 
-      final documentRect = _pdfRectToRectInDocument(
-        marker.bounds, 
-        page: page, 
-        pageRect: pageRect
-      );
-      canvas.drawRect(documentRect, paint);
-
-      final paragraph = _buildParagraph(marker.text, documentRect.width, fontSize: 10, color: Colors.black,);
-      canvas.drawParagraph(paragraph, Offset(documentRect.left + 3, documentRect.top - 12));
-    }
+  // Build label box for text + images
+  Widget _buildDualLabelButton() {
+    return Container(
+      padding: const EdgeInsets.all(4.0),
+      decoration: BoxDecoration(
+        color: const ui.Color.fromARGB(255, 180, 176, 190),
+        borderRadius: BorderRadius.circular(4.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(50),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildLabelOptionButton(
+            'Text',
+            Icons.text_fields,
+            const ui.Color.fromARGB(255, 1, 219, 223),
+            () => _showTextLabelDialog(_pendingSelection!),
+          ),
+          const SizedBox(width: 8),
+          _buildLabelOptionButton(
+            'Image',
+            Icons.image,
+            const ui.Color.fromARGB(255, 61, 196, 66),
+            _handleImageExtraction,
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 16),
+            onPressed: _clearSelection,
+          ),
+        ],
+      ),
+    );
   }
 
+  // Builds the options for the selection label
+  Widget _buildLabelOptionButton(String text, IconData icon, Color color, VoidCallback onPressed) {
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                text,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Creates text rendering objects
   ui.Paragraph _buildParagraph(String text, double maxWidth, {double fontSize = 14, Color color = const Color(0xFF000000)}) {
     final builder = ui.ParagraphBuilder(
       ui.ParagraphStyle(
@@ -169,153 +350,15 @@ class _PDFState extends State<PDF> {
     return paragraph;
   }
 
-  // Build the label button widget
-  Widget _buildLabelButton() {
-    return Container(
-      padding: const EdgeInsets.all(4.0),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 191, 113, 250),
-        borderRadius: BorderRadius.circular(4.0),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.label, color: Colors.white, size: 16),
-            onPressed: () => _showLabelDialog(_pendingSelection!),
-          ),
-          const Text(
-            'Add Label',
-            style: TextStyle(color: Colors.white, fontSize: 12),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white, size: 16),
-            onPressed: _clearSelection,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _updateSelectionOverlay(Rect localRect, bool end) {
-    _selectionOverlay?.remove();
-    _entryLabel?.remove();
-
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final globalRect = Rect.fromPoints(
-      renderBox.localToGlobal(localRect.topLeft),
-      renderBox.localToGlobal(localRect.bottomRight),
-    );
-
-    _selectionOverlay = OverlayEntry(
-      builder: (context) => Positioned(
-        left: globalRect.left,
-        top: globalRect.top,
-        width: globalRect.width,
-        height: globalRect.height,
-        child: IgnorePointer(
-          child: Container(
-            decoration: BoxDecoration(
-              color: const ui.Color.fromARGB(111, 33, 149, 243),
-              border: Border.all(color: Colors.blue, width: 2),
-            ),
-          ),
-        ),
-      ),
-    );
-    Overlay.of(context).insert(_selectionOverlay!);
-
-    if (end) {
-      _entryLabel = OverlayEntry(
-        builder: (context) => Positioned(
-          left: globalRect.left,
-          top: globalRect.top - 50,
-          child: _buildLabelButton(),
-        ),
-      );
-      Overlay.of(context).insert(_entryLabel!);
-    } else {
-      _entryLabel = null;
-    }
-  }
-
-  Future<void> _handleSelection(Rect selRect) async {
-    if (_controller.isReady) {
-      // Convert screen coordinates to PDF page coordinates
-      final topLeft = _controller.getPdfPageHitTestResult(
-        selRect.topLeft,
-        useDocumentLayoutCoordinates: false,
-      );
-      final bottomRight = _controller.getPdfPageHitTestResult(
-        selRect.bottomRight,
-        useDocumentLayoutCoordinates: false,
-      );
-
-      if (topLeft != null && bottomRight != null && topLeft.page == bottomRight.page) {
-        // Create PDF rectangle from selection coordinates
-        final pdfRect = PdfRect(topLeft.offset.x, topLeft.offset.y,
-                                bottomRight.offset.x, bottomRight.offset.y);
-
-        // Load page text
-        PdfPageText? pageText;
-        try {
-          pageText = await topLeft.page.loadStructuredText();
-        } catch (e) {
-          debugPrint('Failed to load page text: $e');
-          return;
-        }
-
-        final fragments = pageText.fragments
-            .where((frag) => pdfRect.overlaps(frag.bounds))
-            .toList();
-
-        final selectedText = fragments.map((f) => f.text).join('');
-        
-        if (fragments.isNotEmpty) {
-          // Create a new selection item
-          final newSelection = TextSelection(
-            text: selectedText,
-            bounds: pdfRect,
-            pageNumber: topLeft.page.pageNumber,
-            globalRect: _getGlobalRect(selRect),
-            label: 'Selection ${_selections.length + 1}', // Default label
-            language: 'Undefined' // Default langauge
-          );
-          
-          // Set as pending selection to show label button
-          _pendingSelection = newSelection;
-
-          // Print selected text and markers
-          debugPrint('Selected text: $selectedText');
-          debugPrint('Total selections: ${_selections.length+1}');
-          debugPrint('Total markers: ${_pdfMarkers.length}');
-        }
-      }
-    }
-  }
-
-  Rect _getGlobalRect(Rect localRect) {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    return Rect.fromPoints(
-      renderBox.localToGlobal(localRect.topLeft),
-      renderBox.localToGlobal(localRect.bottomRight),
-    );
-  }
-
-  void _showLabelDialog(TextSelection selection) {
+  // Text label information
+  void _showTextLabelDialog(TextSelection selection) {
     const List<String> labels = ['Title', 'Caption', 'Paragraph', 'Author'];
-    String dropdownlabel = 'Title';
     const List<String> languages = ['English', 'Not English', 'Other'];
+    String dropdownLabel = 'Title';
     String dropdownLanguage = 'English';
 
-    _selectionOverlay?.remove();
-    //_selectionOverlay = null;
-    _entryLabel?.remove();
-    _entryLabel = null;
-    //_pendingSelection = null;
-  
-    // Add label pop dialog
+    _clearOverlays();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -326,41 +369,27 @@ class _PDFState extends State<PDF> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Category dropdown
                   const Text('Category:'),
                   DropdownButton<String>(
-                    value: dropdownlabel,
+                    value: dropdownLabel,
                     isExpanded: true,
                     items: labels.map((String label) {
-                      return DropdownMenuItem(
-                        value: label,
-                        child: Text(label),
-                      );
+                      return DropdownMenuItem(value: label, child: Text(label));
                     }).toList(),
                     onChanged: (String? newValue) {
-                      setStateDialog(() {
-                        dropdownlabel = newValue!;
-                      });
+                      setStateDialog(() => dropdownLabel = newValue!);
                     },
                   ),
-                  
                   const SizedBox(height: 16),
-                  
-                  // Language dropdown
                   const Text('Language:'),
                   DropdownButton<String>(
                     value: dropdownLanguage,
                     isExpanded: true,
                     items: languages.map((String language) {
-                      return DropdownMenuItem(
-                        value: language,
-                        child: Text(language),
-                      );
+                      return DropdownMenuItem(value: language, child: Text(language));
                     }).toList(),
                     onChanged: (String? newValue) {
-                      setStateDialog(() {
-                        dropdownLanguage = newValue!;
-                      });
+                      setStateDialog(() => dropdownLanguage = newValue!);
                     },
                   ),
                 ],
@@ -369,8 +398,7 @@ class _PDFState extends State<PDF> {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _updateSelectionLabel(selection, dropdownlabel, dropdownLanguage);
-                    _finalizeBox(selection, dropdownlabel, dropdownLanguage);
+                    _finalizeTextSelection(selection, dropdownLabel, dropdownLanguage);
                   },
                   child: const Text('OK'),
                 ),
@@ -381,114 +409,264 @@ class _PDFState extends State<PDF> {
       },
     );
   }
-      
+  
+  // Image label information 
+  void _showImageLabelDialog() {
+    const List<String> imageTypes = ['Figure', 'Diagram', 'Photo', 'Drawing', 'Other'];
+    String selectedImageType = 'Figure';
+    String imageLabel = 'Image ${_imageAnnotations.length + 1}';
 
+    _clearOverlays();
 
-  void _finalizeBox(TextSelection selection, String newLabel, String language) {
-    // Create a new marker item
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Label Image'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Image Type:'),
+                  DropdownButton<String>(
+                    value: selectedImageType,
+                    isExpanded: true,
+                    items: imageTypes.map((String type) {
+                      return DropdownMenuItem(value: type, child: Text(type));
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setStateDialog(() => selectedImageType = newValue!);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Custom Label:'),
+                  TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Enter a custom label...',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      setStateDialog(() {
+                        imageLabel = value.isNotEmpty ? value : selectedImageType;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _clearSelection();
+                  },
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _finalizeImage(selectedImageType, imageLabel);
+                  },
+                  child: const Text('Save Image'),
+                ),
+              ],
+            );
+          }
+        );
+      },
+    );
+  }
+
+  // ===============================
+  // === TEXT & IMAGE PROCESSING ===
+  // ===============================
+
+  // Adds the text selection + marker
+  void _finalizeTextSelection(TextSelection selection, String newLabel, String language) {
+    _clearOverlays();
+
     final newMarker = PdfMarker(
-      color: const Color.fromARGB(255, 45, 246, 239).withAlpha(70),
+      color: const ui.Color.fromARGB(255, 103, 243, 239).withAlpha(100),
       bounds: selection.bounds,
       pageNumber: selection.pageNumber,
       text: newLabel
     );
     
     _pdfMarkers.add(newMarker);
-    //_selectionOverlay?.remove();
-    _selectionOverlay = null;
+    
+    final updatedSelection = selection.copyWith(label: newLabel, language: language);
+    _selections.add(updatedSelection);
+    
     _pendingSelection = null;
+    _pendingSelectionData = null;
+    
+    _safeSetState(() {});
   }
 
-  // Update/add the label of a specific selection
-  void _updateSelectionLabel(TextSelection selection, String newLabel, String language) {
+  // Extract the actual image
+  Future<void> _extractImageFromSelection(PdfRect pdfRect, PdfPage page) async {
+    if (pdfRect.width <= 0 || pdfRect.height <= 0) {
+      _showError('Invalid selection area - please select a larger area');
+      return;
+    }
+
+    try {
+      final pdfHeight = page.height;
+      final flippedY = pdfHeight - (pdfRect.bottom + pdfRect.height);
+      
+      final image = await page.render(
+        x: pdfRect.left.toInt(),
+        y: flippedY.toInt(),
+        width: pdfRect.width.toInt(),
+        height: pdfRect.height.toInt(),
+      );
+      
+      if (image?.pixels == null || image!.pixels.isEmpty) {
+        _showError('No image data found in selected area');
+        return;
+      }
+
+      final pngBytes = await _encodeImageToPng(image.pixels, pdfRect.width.toInt(), pdfRect.height.toInt());
+      
+      if (pngBytes != null) {
+        _pendingImageData = {
+          'pixels': pngBytes,
+          'pdfRect': pdfRect,
+          'pageNumber': page.pageNumber,
+        };
+        _showImageLabelDialog();
+      }
+    } catch (e) {
+      _showError('Error extracting image: $e');
+    }
+  }
+
+  // Create PNG from raw pixels
+  Future<Uint8List?> _encodeImageToPng(Uint8List bgraPixels, int width, int height) async {
+    try {
+      final rgbaPixels = _convertBgraToRgba(bgraPixels);
+      final image = img.Image.fromBytes(
+        width: width,
+        height: height,
+        bytes: rgbaPixels.buffer,
+        numChannels: 4,
+      );
+      final pngBytes = img.encodePng(image);
+      return Uint8List.fromList(pngBytes);
+    } catch (e) {
+      _showError('Error encoding PNG: $e');
+      return null;
+    }
+  }
+
+  // Take pdfrx BGRA -> RGBA for png
+  Uint8List _convertBgraToRgba(Uint8List bgraPixels) {
+    final rgbaPixels = Uint8List(bgraPixels.length);
+    for (int i = 0; i < bgraPixels.length; i += 4) {
+      rgbaPixels[i] = bgraPixels[i + 2];     // R
+      rgbaPixels[i + 1] = bgraPixels[i + 1]; // G
+      rgbaPixels[i + 2] = bgraPixels[i];     // B
+      rgbaPixels[i + 3] = bgraPixels[i + 3]; // A
+    }
+    return rgbaPixels;
+  }
+
+  // Add image item 
+  void _finalizeImage(String imageType, String label) async {
+    if (_pendingImageData == null) return;
+
+    final pixels = _pendingImageData!['pixels'] as Uint8List;
+    final pdfRect = _pendingImageData!['pdfRect'] as PdfRect;
+    final pageNumber = _pendingImageData!['pageNumber'] as int;
+    
+    final timestamp = DateTime.now();
+    final fileName = '${imageType.toLowerCase()}_page${pageNumber}_${label}_$timestamp.png';
+    
+    await _saveImageToFile(pixels, fileName);
+    
+    _imageAnnotations.add(ImageAnnotation(
+      imageBytes: pixels,
+      imageName: fileName,
+      bounds: pdfRect,
+      pageNumber: pageNumber,
+      label: '$imageType: $label',
+    ));
+    
+    _pendingImageData = null;
+    _pendingSelectionData = null;
+    
+    _showSnackBar('$imageType saved: $label');
+    _clearOverlays();
+    _safeSetState(() {});
+  }
+
+  // ==================================
+  // === PAINT TEXT & IMAGE MARKERS ===
+  // ==================================
+
+  // Shows text selection overlays
+  void _paintTextMarkers(Canvas canvas, Rect pageRect, PdfPage page) {
+    final markers = _pdfMarkers.where((marker) => marker.pageNumber == page.pageNumber).toList();
+    if (markers.isEmpty) return;
+    
+    for (final marker in markers) {
+      final paint = Paint()
+        ..color = marker.color
+        ..style = PaintingStyle.fill;
+
+      final documentRect = _pdfRectToRectInDocument(marker.bounds, page: page, pageRect: pageRect);
+      canvas.drawRect(documentRect, paint);
+
+      final paragraph = _buildParagraph(marker.text, documentRect.width, fontSize: 10, color: Colors.black);
+      canvas.drawParagraph(paragraph, Offset(documentRect.left + 3, documentRect.top - 12));
+    }
+  }
+
+  // Shows image selection overlays
+  void _paintImages(Canvas canvas, Rect pageRect, PdfPage page) {
+    final images = _imageAnnotations.where((img) => img.pageNumber == page.pageNumber).toList();
+    if (images.isEmpty) return;
+    
+    for (final imageAnnotation in images) {
+      final documentRect = _pdfRectToRectInDocument(imageAnnotation.bounds, page: page, pageRect: pageRect);
+      
+      final paint = Paint()
+        ..color = const ui.Color.fromARGB(255, 107, 240, 136).withAlpha(100)
+        ..style = PaintingStyle.fill;
+      
+      canvas.drawRect(documentRect, paint);
+      
+      final paragraph = _buildParagraph(
+        imageAnnotation.label, 
+        documentRect.width, 
+        fontSize: 10, 
+        color: const ui.Color.fromARGB(255, 0, 0, 0)
+      );
+      canvas.drawParagraph(paragraph, Offset(documentRect.left + 3, documentRect.top - 12));
+    }
+  }
+
+  // ========================
+  // === FILE & EXPORTING ===
+  // ========================
+
+  // Saves the image locally
+  Future<void> _saveImageToFile(Uint8List imageBytes, String fileName) async {
+    try {
+      final location = await fs.getSaveLocation(suggestedName: fileName);
+      if (location != null) {
+        final file = fs.XFile.fromData(imageBytes, mimeType: 'image/png', name: fileName);
+        await file.saveTo(location.path);
+        _showSnackBar('Image saved as: $fileName');
+      }
+    } catch (e) {
+      _showError('Failed to save image: $e');
+    }
+  }
   
-    _selections.add(selection.copyWith(
-      label: newLabel.isEmpty ? 'Unlabeled' : newLabel,
-      language: language));
-    debugPrint('All Selections:');
-    for (final s in _selections) {
-      debugPrint('Label: ${s.label}, Text: ${s.text}');
-    }
-  }
-
-  // Clear a selection
-  void _clearSelection() {
-
-    if (_pendingSelection != null) {
-      //_pdfMarkers.removeLast();
-      _pendingSelection = null;
-    }
-    
-    _selectionOverlay?.remove();
-    _selectionOverlay = null;
-    _entryLabel?.remove();
-    _entryLabel = null;
-    debugPrint('Selection cleared');
-  }
-
-  void _clearAllSelections(){
-    _selections.clear();
-    _pdfMarkers.clear();
-  }
-
-  
-
-  Future<void> exportPairedToText() async {
-    final text = StringBuffer();
-    
-    text.writeln('PDF SELECTIONS');
-    text.writeln('=' * 50);
-    
-    // Find the maximum length to iterate through both lists
-    final maxLength = _selections.length > _pdfMarkers.length ? _selections.length : _pdfMarkers.length;
-    
-    for (int i = 0; i < maxLength; i++) {
-      text.writeln('\nITEM ${i + 1}:');
-      text.writeln('-' * 30);
-      
-      // Add selection if it exists
-      if (i < _selections.length) {
-        final s = _selections[i];
-        text.writeln('SELECTION:');
-        text.writeln('  Label: ${s.label}');
-        text.writeln('  Language: ${s.language}'); 
-        text.writeln('  Page: ${s.pageNumber}');
-        text.writeln('  Text: "${s.text}"');
-        text.writeln('  Position: (${s.bounds.left}, ${s.bounds.top}) to (${s.bounds.right}, ${s.bounds.bottom})');
-      } else {
-        text.writeln('SELECTION: [None]');
-      }
-      
-      text.writeln(); // Empty line between selection and marker
-      
-      // Add marker if it exists 
-      // Maybe don't need since the selection already has positioning??? 
-      /*
-      if (i < _pdfMarkers.length) {
-        final m = _pdfMarkers[i];
-        text.writeln('MARKER:');
-        text.writeln('  Label: ${m.text}');
-        text.writeln('  Page: ${m.pageNumber}');
-        text.writeln('  Position: (${m.bounds.left}, ${m.bounds.top}) to (${m.bounds.right}, ${m.bounds.bottom})');
-      } else {
-        text.writeln('MARKER: [None]');
-      }
-      */
-      
-      if (i < maxLength - 1) {
-        text.writeln('\n${'=' * 50}');
-      }
-    }
-    
-    await _saveTextToFile(text.toString());
-  }
-
+  // Saves the data .txt file to downloads
   Future<void> _saveTextToFile(String text) async {
-    // For both mobile/desktop and web, use file_selector
-    final location = await fs.getSaveLocation(
-      suggestedName: 'pdf_annotations.txt',
-    );
-    
+    final location = await fs.getSaveLocation(suggestedName: 'pdf_annotations.txt');
     if (location != null) {
       final file = fs.XFile.fromData(
         Uint8List.fromList(utf8.encode(text)),
@@ -499,9 +677,70 @@ class _PDFState extends State<PDF> {
     }
   }
 
+  void _handleExportTrigger() {
+    if (widget.exportTrigger?.value == true) {
+      exportPairedToText();
+      widget.exportTrigger?.value = false;
+    }
+  }
+
+  // Creates the file of data to export
+  Future<void> exportPairedToText() async {
+    final text = StringBuffer();
+    
+    text.writeln('PDF EXTRACTIONS');
+    text.writeln('=' * 50);
+    
+    for (int i = 0; i < _selections.length; i++) {
+      final s = _selections[i];
+      text.writeln('\nTEXT EXTRACTION ${i + 1}:');
+      text.writeln('-' * 30);
+      text.writeln('  Label: ${s.label}');
+      text.writeln('  Language: ${s.language}'); 
+      text.writeln('  Page: ${s.pageNumber}');
+      text.writeln('  Text: "${s.text}"');
+      text.writeln('  Position: (${s.bounds.left}, ${s.bounds.top}) to (${s.bounds.right}, ${s.bounds.bottom})');
+    }
+    
+    if (_imageAnnotations.isNotEmpty) {
+      text.writeln('\n\nIMAGE EXTRACTIONS');
+      text.writeln('=' * 50);
+      
+      for (int i = 0; i < _imageAnnotations.length; i++) {
+        final img = _imageAnnotations[i];
+        text.writeln('\nIMAGE ${i + 1}:');
+        text.writeln('  Name: ${img.imageName}');
+        text.writeln('  Label: ${img.label}');
+        text.writeln('  Page: ${img.pageNumber}');
+        text.writeln('  Position: (${img.bounds.left}, ${img.bounds.top}) to (${img.bounds.right}, ${img.bounds.bottom})');
+        text.writeln('  Size: ${img.imageBytes.length} bytes');
+      }
+    }
+    
+    await _saveTextToFile(text.toString());
+  }
+
+  // ============================
+  // === ERROR HELPER METHODS ===
+  // ============================
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    if (mounted) setState(fn);
+  }
+
 }
 
-// Data class to store selections with info
+// Text, Markers & Images classes
 class TextSelection {
   final String text;
   final PdfRect bounds;
@@ -538,7 +777,6 @@ class TextSelection {
   }
 }
 
-// Data class to store marker selections with info
 class PdfMarker {
   final Color color;
   final PdfRect bounds;
@@ -550,5 +788,21 @@ class PdfMarker {
     required this.bounds,
     required this.pageNumber,
     required this.text,
+  });
+}
+
+class ImageAnnotation {
+  final Uint8List imageBytes;
+  final String imageName;
+  final PdfRect bounds;
+  final int pageNumber;
+  final String label;
+
+  ImageAnnotation({
+    required this.imageBytes,
+    required this.imageName,
+    required this.bounds,
+    required this.pageNumber,
+    required this.label,
   });
 }
