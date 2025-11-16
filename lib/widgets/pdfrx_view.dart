@@ -30,9 +30,11 @@ class _PDFState extends State<PDF> {
   Offset? _dragCurrent;
   OverlayEntry? _selectionOverlay;
   OverlayEntry? _entryLabel;
-  final List<TextSelection> _selections = [];
+  final Map<int, TextSelection> _selections = {};
   // List to store all marker/highlight boxes with their data
-  List<PdfMarker> _pdfMarkers = [];
+  final List<PdfMarker> _pdfMarkers = [];
+
+  int _indexCount = 0;
 
   // Track the most recent selection for labeling
   TextSelection? _pendingSelection;
@@ -133,7 +135,30 @@ class _PDFState extends State<PDF> {
             builder: (_, hasSelected, _) {
               return SizedBox(
                 width: hasSelected == null ? 0 : 250,
-                child: Text("Sidebar")
+                child: Column (
+                  children: [
+                    Text("Text"),
+                    Expanded(
+                      child: Card(
+                        margin: EdgeInsets.all(8.0),
+                        child: Text(_hasSelected.value == null ? "" : _selections[_hasSelected.value!.index]!.text)
+                      )
+                    ),
+                    Text("Label"),
+                    Expanded(
+                      child: Card(
+                        margin: EdgeInsets.all(8.0),
+                        child: Text(_hasSelected.value == null ? "" : _hasSelected.value!.text),
+                      )
+                    ),
+                    Expanded(
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.red, size: 16),
+                        onPressed: () => deleteSelection()
+                      )
+                    )
+                  ],
+                )
               );
             }
           )
@@ -145,6 +170,18 @@ class _PDFState extends State<PDF> {
   void _onMarkerTapped(PdfMarker marker) {
     _hasSelected.value = marker != _hasSelected.value ? marker : null;
     print(marker.text);
+  }
+
+
+  void deleteSelection() {
+    if (_hasSelected.value == null) {
+      return;
+    }
+
+    int index = _hasSelected.value!.index;
+    _pdfMarkers.removeWhere((item) => item == _hasSelected.value);
+    _selections.remove(index);
+    _hasSelected.value = null;
   }
 
   // Copied from Pdfrx src code
@@ -370,6 +407,7 @@ class _PDFState extends State<PDF> {
                     Navigator.of(context).pop();
                     _updateSelectionLabel(selection, dropdownlabel);
                     _finalizeBox(selection, dropdownlabel);
+                    _indexCount++;
                   },
                   child: const Text('OK'),
                 ),
@@ -388,7 +426,8 @@ class _PDFState extends State<PDF> {
       color: const Color.fromARGB(255, 45, 246, 239).withAlpha(70),
       bounds: selection.bounds,
       pageNumber: selection.pageNumber,
-      text: newLabel
+      text: newLabel,
+      index: _indexCount,
     );
     
     _pdfMarkers.add(newMarker);
@@ -399,10 +438,9 @@ class _PDFState extends State<PDF> {
 
   // Update/add the label of a specific selection
   void _updateSelectionLabel(TextSelection selection, String newLabel) {
-  
-    _selections.add(selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
+    _selections.update(_indexCount, (value) => selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel), ifAbsent: () => selection.copyWith(label: newLabel.isEmpty ? 'Unlabeled' : newLabel));
     debugPrint('All Selections:');
-    for (final s in _selections) {
+    for (final s in _selections.values) {
       debugPrint('Label: ${s.label}, Text: ${s.text}');
     }
   }
@@ -437,16 +475,13 @@ class _PDFState extends State<PDF> {
       text.writeln('\nITEM ${i + 1}:');
       text.writeln('-' * 30);
       
-      // Add selection if it exists
-      if (i < _selections.length) {
-        final s = _selections[i];
+      // Add selections
+      for (TextSelection s in _selections.values) {
         text.writeln('SELECTION:');
         text.writeln('  Label: ${s.label}');
         text.writeln('  Page: ${s.pageNumber}');
         text.writeln('  Text: "${s.text}"');
         text.writeln('  Position: (${s.bounds.left}, ${s.bounds.top}) to (${s.bounds.right}, ${s.bounds.bottom})');
-      } else {
-        text.writeln('SELECTION: [None]');
       }
       
       text.writeln(); // Empty line between selection and marker
@@ -530,11 +565,13 @@ class PdfMarker {
   final PdfRect bounds;
   final int pageNumber;
   final String text;
+  final int index;
 
   PdfMarker({
     required this.color,
     required this.bounds,
     required this.pageNumber,
     required this.text,
+    required this.index,
   });
 }
