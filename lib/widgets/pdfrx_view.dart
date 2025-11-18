@@ -795,7 +795,7 @@ class _PDFState extends State<PDF> {
     
     int i = 1;
     for (TextSelection s in _selections.values) {
-      text.writeln('\nTEXT EXTRACTION ${i + 1}:');
+      text.writeln('\nTEXT EXTRACTION $i:');
       text.writeln('-' * 30);
       text.writeln('  Label: ${s.label}');
       text.writeln('  Language: ${s.language}'); 
