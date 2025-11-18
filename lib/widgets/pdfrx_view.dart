@@ -270,6 +270,7 @@ class _PDFState extends State<PDF> {
 
   // Clear all selections
   void _clearAllSelections() {
+    _hasSelected.value = null;
     _selections.clear();
     _pdfMarkers.clear();
     _imageAnnotations.clear();
