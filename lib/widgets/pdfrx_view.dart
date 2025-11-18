@@ -34,9 +34,14 @@ class _PDFState extends State<PDF> {
   OverlayEntry? _entryLabel;
 
   // Data collections
-  final List<TextSelection> _selections = [];
+  final Map<int, TextSelection> _selections = {};
   final List<PdfMarker> _pdfMarkers = [];
   final List<ImageAnnotation> _imageAnnotations = [];
+
+  final _hasSelected = ValueNotifier<PdfMarker?>(null);
+
+  // Shared index corresponding selections and markers
+  int _indexCount = 0;
 
   // Pending operations
   TextSelection? _pendingSelection;
@@ -70,43 +75,125 @@ class _PDFState extends State<PDF> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+      body: Row(
         children: [
-          PdfViewer(
-            widget.documentRef!,
-            controller: _controller,
-            params: PdfViewerParams(
-              pagePaintCallbacks: [_paintTextMarkers, _paintImages],
+          Expanded(
+            child: Stack(
+              children: [
+                PdfViewer(
+                  widget.documentRef!,
+                  controller: _controller,
+                  params: PdfViewerParams(
+                    pagePaintCallbacks: [_paintTextMarkers, _paintImages],
+                  ),
+                ),
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+
+                    onTapDown: (details) async {
+                      final pdfTap = _controller.getPdfPageHitTestResult(
+                        details.localPosition,
+                        useDocumentLayoutCoordinates: false,
+                      );
+
+                      for (PdfMarker marker in _pdfMarkers) {
+                        if (pdfTap != null && marker.bounds.containsPoint(pdfTap.offset)) {
+                          _hasSelected.value = marker != _hasSelected.value ? marker : null;
+                          return;
+                        }
+                      }
+
+                    },
+
+                    onPanStart: (details) {
+                      if (selectMode) {
+                        _dragStart = details.localPosition;
+                        _dragCurrent = _dragStart;
+                        _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
+                      }
+                    },
+                    onPanUpdate: (details) {
+                      if (selectMode) {
+                        _dragCurrent = details.localPosition;
+                        _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
+                      }
+                    },
+                    onPanEnd: (_) async {
+                      if (_dragStart != null && _dragCurrent != null && selectMode) {
+                        final rect = Rect.fromPoints(_dragStart!, _dragCurrent!);
+                        await _handleSelection(rect);
+                        _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), true);
+                      }
+                      _dragStart = null;
+                      _dragCurrent = null;
+                    },
+                    onDoubleTap: _clearSelection,
+                  ),
+                ),
+              ],
             ),
           ),
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (details) {
-                if (selectMode) {
-                  _dragStart = details.localPosition;
-                  _dragCurrent = _dragStart;
-                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
-                }
-              },
-              onPanUpdate: (details) {
-                if (selectMode) {
-                  _dragCurrent = details.localPosition;
-                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), false);
-                }
-              },
-              onPanEnd: (_) async {
-                if (_dragStart != null && _dragCurrent != null && selectMode) {
-                  final rect = Rect.fromPoints(_dragStart!, _dragCurrent!);
-                  await _handleSelection(rect);
-                  _updateSelectionOverlay(Rect.fromPoints(_dragStart!, _dragCurrent!), true);
-                }
-                _dragStart = null;
-                _dragCurrent = null;
-              },
-              onDoubleTap: _clearSelection,
-            ),
-          ),
+
+          // Sidebar
+          ValueListenableBuilder<PdfMarker?>(
+            valueListenable: _hasSelected,
+            builder: (_, hasSelected, _) {
+              final visible = hasSelected != null;
+
+              return SizedBox(
+                width: visible ? 250 : 0,
+                child: Column (
+                  children: [
+                    Spacer(),
+
+                    Text(visible ? "Text" : ""),
+                    Expanded(
+                      flex: 4,
+                      child: Card(
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(15.0),
+                            child: Text(!visible ? "" : _selections[_hasSelected.value!.index]!.text),
+                          ),
+                        )
+                      )
+                    ),
+
+                    Spacer(),
+
+                    Text(visible ? "Label" : ""),
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Text(!visible ? "" : _hasSelected.value!.text),
+                        ),
+                      )
+                    ),
+
+                    Spacer(
+                      flex: 5,
+                    ),
+
+                    Center(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red.shade400,
+                        ),
+                        icon: const Icon(Icons.delete, size: 18),
+                        label: const Text("Delete Selection"),
+                        onPressed: () => deleteSelection(),
+                      ),
+                    ),
+
+                    Spacer(),
+                  ],
+                )
+              );
+            }
+          )
         ],
       ),
     );
@@ -186,6 +273,18 @@ class _PDFState extends State<PDF> {
     _selections.clear();
     _pdfMarkers.clear();
     _imageAnnotations.clear();
+  }
+
+
+  void deleteSelection() {
+    if (_hasSelected.value == null) {
+      return;
+    }
+
+    int index = _hasSelected.value!.index;
+    _pdfMarkers.removeWhere((item) => item == _hasSelected.value);
+    _selections.remove(index);
+    _hasSelected.value = null;
   }
 
   // ==================================================
@@ -489,13 +588,16 @@ class _PDFState extends State<PDF> {
       color: const ui.Color.fromARGB(255, 103, 243, 239).withAlpha(100),
       bounds: selection.bounds,
       pageNumber: selection.pageNumber,
-      text: newLabel
+      text: newLabel,
+      index: _indexCount,
     );
     
     _pdfMarkers.add(newMarker);
     
     final updatedSelection = selection.copyWith(label: newLabel, language: language);
-    _selections.add(updatedSelection);
+    _selections.update(_indexCount, (value) => updatedSelection, ifAbsent: () => updatedSelection);
+
+    _indexCount++;
     
     _pendingSelection = null;
     _pendingSelectionData = null;
@@ -611,7 +713,7 @@ class _PDFState extends State<PDF> {
     
     for (final marker in markers) {
       final paint = Paint()
-        ..color = marker.color
+        ..color = marker == _hasSelected.value ? const ui.Color.fromARGB(255, 3, 171, 165).withAlpha(70) : marker.color
         ..style = PaintingStyle.fill;
 
       final documentRect = _pdfRectToRectInDocument(marker.bounds, page: page, pageRect: pageRect);
@@ -691,8 +793,8 @@ class _PDFState extends State<PDF> {
     text.writeln('PDF EXTRACTIONS');
     text.writeln('=' * 50);
     
-    for (int i = 0; i < _selections.length; i++) {
-      final s = _selections[i];
+    int i = 1;
+    for (TextSelection s in _selections.values) {
       text.writeln('\nTEXT EXTRACTION ${i + 1}:');
       text.writeln('-' * 30);
       text.writeln('  Label: ${s.label}');
@@ -700,6 +802,7 @@ class _PDFState extends State<PDF> {
       text.writeln('  Page: ${s.pageNumber}');
       text.writeln('  Text: "${s.text}"');
       text.writeln('  Position: (${s.bounds.left}, ${s.bounds.top}) to (${s.bounds.right}, ${s.bounds.bottom})');
+      i++;
     }
     
     if (_imageAnnotations.isNotEmpty) {
@@ -782,12 +885,14 @@ class PdfMarker {
   final PdfRect bounds;
   final int pageNumber;
   final String text;
+  final int index;
 
   PdfMarker({
     required this.color,
     required this.bounds,
     required this.pageNumber,
     required this.text,
+    required this.index,
   });
 }
 
