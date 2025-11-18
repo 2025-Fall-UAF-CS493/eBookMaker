@@ -133,30 +133,58 @@ class _PDFState extends State<PDF> {
           ValueListenableBuilder<PdfMarker?>(
             valueListenable: _hasSelected,
             builder: (_, hasSelected, _) {
+
+              final visible = hasSelected != null;
+
               return SizedBox(
-                width: hasSelected == null ? 0 : 250,
+                width: visible ? 250 : 0,
                 child: Column (
                   children: [
-                    Text("Text"),
+
+                    Spacer(),
+
+                    Text(visible ? "Text" : ""),
                     Expanded(
+                      flex: 4,
                       child: Card(
-                        margin: EdgeInsets.all(8.0),
-                        child: Text(_hasSelected.value == null ? "" : _selections[_hasSelected.value!.index]!.text)
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(15.0),
+                            child: Text(!visible ? "" : _selections[_hasSelected.value!.index]!.text),
+                          ),
+                        )
                       )
                     ),
-                    Text("Label"),
-                    Expanded(
+
+                    Spacer(),
+
+                    Text(visible ? "Label" : ""),
+                    Padding(
+                      padding: const EdgeInsets.all(10),
                       child: Card(
-                        margin: EdgeInsets.all(8.0),
-                        child: Text(_hasSelected.value == null ? "" : _hasSelected.value!.text),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Text(!visible ? "" : _hasSelected.value!.text),
+                        ),
                       )
                     ),
-                    Expanded(
-                      child: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.red, size: 16),
-                        onPressed: () => deleteSelection()
-                      )
-                    )
+
+                    Spacer(
+                      flex: 5,
+                    ),
+
+                    Center(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red.shade400,
+                        ),
+                        icon: const Icon(Icons.delete, size: 18),
+                        label: const Text("Delete Selection"),
+                        onPressed: () => deleteSelection(),
+                      ),
+                    ),
+
+                    Spacer(),
                   ],
                 )
               );
@@ -169,7 +197,6 @@ class _PDFState extends State<PDF> {
 
   void _onMarkerTapped(PdfMarker marker) {
     _hasSelected.value = marker != _hasSelected.value ? marker : null;
-    print(marker.text);
   }
 
 
