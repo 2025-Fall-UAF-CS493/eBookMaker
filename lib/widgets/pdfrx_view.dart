@@ -9,13 +9,15 @@ import 'package:image/image.dart' as img;
 class PDF extends StatefulWidget {
   final ValueNotifier<bool> selectModeNotifier;
   final PdfDocumentRef? documentRef;
-  final ValueNotifier<bool>? exportTrigger; 
+  final ValueNotifier<bool>? exportTrigger;
+  final ValueNotifier<bool>? exportXMLTrigger;  
 
   const PDF({
     super.key, 
     required this.selectModeNotifier, 
     this.documentRef,
     this.exportTrigger,
+    this.exportXMLTrigger,
   });
 
   @override
@@ -37,6 +39,7 @@ class _PDFState extends State<PDF> {
   final Map<int, TextSelection> _selections = {};
   final List<PdfMarker> _pdfMarkers = [];
   final List<ImageAnnotation> _imageAnnotations = [];
+  final List<String> teiTags = [];
 
   final _hasSelected = ValueNotifier<PdfMarker?>(null);
 
@@ -56,11 +59,13 @@ class _PDFState extends State<PDF> {
   void initState() {
     super.initState();
     widget.exportTrigger?.addListener(_handleExportTrigger);
+    widget.exportXMLTrigger?.addListener(_handleExportXMLTrigger);
   }
 
   @override
   void dispose() {
     widget.exportTrigger?.removeListener(_handleExportTrigger);
+    widget.exportXMLTrigger?.removeListener(_handleExportXMLTrigger);
     super.dispose();
   }
 
@@ -602,6 +607,9 @@ class _PDFState extends State<PDF> {
     
     _pendingSelection = null;
     _pendingSelectionData = null;
+
+    String teiText = generateTEITagForText(selection);
+    teiTags.add(teiText);
     
     _safeSetState(() {});
   }
@@ -697,6 +705,15 @@ class _PDFState extends State<PDF> {
     
     _pendingImageData = null;
     _pendingSelectionData = null;
+
+    String teiImage = generateTEITagForImage(ImageAnnotation(
+      imageBytes: pixels,
+      imageName: fileName,
+      bounds: pdfRect,
+      pageNumber: pageNumber,
+      label: '$imageType: $label',
+    ));
+    teiTags.add(teiImage);
     
     _showSnackBar('$imageType saved: $label');
     _clearOverlays();
@@ -780,10 +797,30 @@ class _PDFState extends State<PDF> {
     }
   }
 
+  // Saves the data .xml file to downloads
+  Future<void> _saveXMLToFile(String text) async {
+    final location = await fs.getSaveLocation(suggestedName: 'pdf_tei.xml');
+    if (location != null) {
+      final file = fs.XFile.fromData(
+        Uint8List.fromList(utf8.encode(text)),
+        mimeType: 'text/plain',
+        name: 'pdf_tei.xml',
+      );
+      await file.saveTo(location.path);
+    }
+  }
+
   void _handleExportTrigger() {
     if (widget.exportTrigger?.value == true) {
       exportPairedToText();
       widget.exportTrigger?.value = false;
+    }
+  }
+
+  void _handleExportXMLTrigger() {
+    if (widget.exportXMLTrigger?.value == true) {
+      exportPairedToXML();
+      widget.exportXMLTrigger?.value = false;
     }
   }
 
@@ -824,6 +861,52 @@ class _PDFState extends State<PDF> {
     await _saveTextToFile(text.toString());
   }
 
+  String generateTEITagForText(TextSelection selection) {
+    // Wrap text in a TEI <note> element with label and language
+    return '''
+    <note type="${escapeCharsXML(selection.label)}" xml:lang="${escapeCharsXML(selection.language)}">
+    ${escapeCharsXML(selection.text)}
+    </note>
+    ''';
+  }
+
+  String generateTEITagForImage(ImageAnnotation image) {
+  // Create a <figure> element with label and image data
+  final base64Image = base64Encode(image.imageBytes);
+  return '''
+    <figure type="${escapeCharsXML(image.label)}">
+    <img src="data:image/png;base64,$base64Image" alt="${escapeCharsXML(image.label)}"/>
+    </figure>
+    ''';
+  }
+
+  // Build and export the XML file based on user selection(s)
+  Future<void> exportPairedToXML() async {
+
+    final xml = StringBuffer();
+
+    xml.writeln("<TEI xmlns=\"http://www.tei-c.org/ns/1.0\">");
+    xml.writeln("<teiHeader>");
+    xml.writeln("<fileDesc>");
+    xml.writeln("<titleStmt><title>" "</title></titleStmt>");
+    xml.writeln("</fileDesc>");
+    xml.writeln("</teiHeader>");
+    xml.writeln("<text>");
+    xml.writeln("<body>");
+
+    for (String tag in teiTags) {
+      xml.writeln(tag);
+    }
+
+    xml.writeln("</body>");
+    xml.writeln("</text>");
+    xml.writeln("</TEI>");
+
+    //Export XML code
+    await _saveXMLToFile(xml.toString());
+
+  }
+
   // ============================
   // === ERROR HELPER METHODS ===
   // ============================
@@ -842,6 +925,15 @@ class _PDFState extends State<PDF> {
     if (mounted) setState(fn);
   }
 
+  // Replace error-prone chars for XML file
+  String escapeCharsXML(String chars) {
+    return chars
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+  }
 }
 
 // Text, Markers & Images classes

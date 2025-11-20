@@ -43,7 +43,8 @@ class PDFSelectionWindow extends StatefulWidget {
 class _PDFSelectState extends State<PDFSelectionWindow> {
   late final ValueNotifier<bool> selectModeNotifier;
   final documentRef = ValueNotifier<PdfDocumentRef?>(null);
-  final ValueNotifier<bool> exportTrigger = ValueNotifier<bool>(false); 
+  final ValueNotifier<bool> exportTrigger = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> exportXMLTrigger = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -56,11 +57,16 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   void dispose() {
     selectModeNotifier.dispose();
     exportTrigger.dispose();
+    exportXMLTrigger.dispose();
     super.dispose();
   }
 
   void _triggerExport() {
     exportTrigger.value = true;
+  }
+
+  void _triggerXMLExport() {
+    exportXMLTrigger.value = true;
   }
 
   Future<void> openInitialFile({bool useProgressiveLoading = true}) async {
@@ -127,7 +133,12 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
             const SizedBox(width: 10),
             FilledButton(
               onPressed: _triggerExport,
-              child: const Text('Export'), 
+              child: const Text('Export Text'), 
+            ),
+            const SizedBox(width: 10),
+            FilledButton(
+              onPressed: _triggerXMLExport,
+              child: const Text('Export XML'), 
             ),
             const SizedBox(width: 10),
             FilledButton(
@@ -154,6 +165,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                         selectModeNotifier: selectModeNotifier,
                         documentRef: docRef,
                         exportTrigger: exportTrigger,
+                        exportXMLTrigger: exportXMLTrigger,
                       ),
                     );
                   },
