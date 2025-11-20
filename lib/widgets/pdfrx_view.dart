@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:image/image.dart' as img;
 
+const List<String> TEIlabels = ['Title', 'Caption', 'Paragraph', 'Author'];
+const List<String> TEIlanguages = ['English', 'Not English', 'Other'];
+
 class PDF extends StatefulWidget {
   final ValueNotifier<bool> selectModeNotifier;
   final PdfDocumentRef? documentRef;
@@ -34,11 +37,16 @@ class _PDFState extends State<PDF> {
   OverlayEntry? _entryLabel;
 
   // Data collections
-  final Map<int, TextSelection> _selections = {};
-  final List<PdfMarker> _pdfMarkers = [];
+  Map<int, TextSelection> _selections = {};
+  List<PdfMarker> _pdfMarkers = [];
   final List<ImageAnnotation> _imageAnnotations = [];
 
+  // Sidebar variables
   final _hasSelected = ValueNotifier<PdfMarker?>(null);
+  final _sidebarEdit = ValueNotifier<bool>(false);
+  String _sidebarLabel = "";
+  String _sidebarLang = "";
+  final TextEditingController _sidebarText = TextEditingController(text: "");
 
   // Shared index corresponding selections and markers
   int _indexCount = 0;
@@ -99,9 +107,27 @@ class _PDFState extends State<PDF> {
 
                       for (PdfMarker marker in _pdfMarkers) {
                         if (pdfTap != null && marker.bounds.containsPoint(pdfTap.offset)) {
-                          _hasSelected.value = marker != _hasSelected.value ? marker : null;
+                          if(marker != _hasSelected.value) {
+                            _hasSelected.value = marker;
+                            _sidebarLabel = marker.label;
+                            _sidebarLang = _selections[marker.index]!.language;
+                            _sidebarText.text = _selections[marker.index]!.text;
+                          } else {
+                            _sidebarEdit.value = false;
+                            _hasSelected.value = null;
+                            _sidebarLabel = "";
+                            _sidebarLang = "";
+                            _sidebarText.text = "";
+                          }
                           return;
                         }
+                      }
+                      if (pdfTap != null) {
+                        _sidebarEdit.value = false;
+                        _sidebarLabel = "";
+                        _sidebarLang = "";
+                        _sidebarText.text = "";
+                        _hasSelected.value = null;
                       }
 
                     },
@@ -138,60 +164,164 @@ class _PDFState extends State<PDF> {
           // Sidebar
           ValueListenableBuilder<PdfMarker?>(
             valueListenable: _hasSelected,
-            builder: (_, hasSelected, _) {
-              final visible = hasSelected != null;
+            builder: (_, marker, _) {
+              final visible = marker != null;
 
-              return SizedBox(
-                width: visible ? 250 : 0,
-                child: Column (
-                  children: [
-                    Spacer(),
+              return visible ? SizedBox(
+                width: 250,
+                child: ValueListenableBuilder(
+                  valueListenable: _sidebarEdit,
+                  builder: (_, editMode, _) {
+                    return Column (
+                      children: [
+                        Spacer(),
+                    
+                        Text("Text"),
+                        Expanded(
+                          flex: 4,
+                          child: Card(
+                            child: SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.all(15.0),
+                                child: editMode ? 
+                                  TextField(
+                                    controller: _sidebarText,
+                                    onChanged: (String? newValue) {
+                                      _sidebarText.text = newValue!;
+                                    },
+                                    maxLines: null,
+                                  )
+                                  :
+                                  Text( _selections[marker.index]!.text)
+                              ),
+                            )
+                          )
+                        ),
+                    
+                        Spacer(),
+                    
+                        Text("Label"),
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: !editMode
+                              ?
+                              Text(marker.label)
+                              :
+                              StatefulBuilder(
+                                builder: (context, dropDownState) {
+                                return DropdownButton<String>(
+                                    value: _sidebarLabel,
+                                    isExpanded: true,
+                                    items: TEIlabels.map((String label) {
+                                      return DropdownMenuItem(value: label, child: Text(label));
+                                    }).toList(),
+                                    onChanged: (String? newValue) {
+                                      dropDownState(() => _sidebarLabel = newValue!);
+                                    },
+                                  );
+                                }
+                              )
+                            ),
+                          )
+                        ),
 
-                    Text(visible ? "Text" : ""),
-                    Expanded(
-                      flex: 4,
-                      child: Card(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(15.0),
-                            child: Text(!visible ? "" : _selections[_hasSelected.value!.index]!.text),
+                        Spacer(),
+
+                        Text("Language"),
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: !editMode
+                              ?
+                              Text(_selections[marker.index]!.language)
+                              :
+                              StatefulBuilder(
+                                builder: (context, dropDownState) {
+                                return DropdownButton<String>(
+                                    value: _sidebarLang,
+                                    isExpanded: true,
+                                    items: TEIlanguages.map((String label) {
+                                      return DropdownMenuItem(value: label, child: Text(label));
+                                    }).toList(),
+                                    onChanged: (String? newValue) {
+                                      dropDownState(() => _sidebarLang = newValue!);
+                                    },
+                                  );
+                                }
+                              )
+                            ),
+                          )
+                        ),
+                    
+                        Spacer(
+                          flex: 5,
+                        ),
+                    
+                        editMode ?
+                        Center(
+                          child: Row(
+                            children: [
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.red.shade400,
+                                ),
+                                icon: const Icon(Icons.delete, size: 18),
+                                label: const Text("Cancel"),
+                                onPressed: () => { 
+                                  _sidebarEdit.value = !_sidebarEdit.value,
+                                  _sidebarLabel = marker.label,
+                                  _sidebarLang = _selections[marker.index]!.language,
+                                  _sidebarText.text = _selections[marker.index]!.text,
+                                },
+                              ),
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.green.shade400,
+                                ),
+                                icon: const Icon(Icons.delete, size: 18),
+                                label: const Text("Save"),
+                                onPressed: () => updateTextSelection(marker, _sidebarText.text, _sidebarLabel, _sidebarLang),
+                              )
+                            ],
                           ),
                         )
-                      )
-                    ),
-
-                    Spacer(),
-
-                    Text(visible ? "Label" : ""),
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Text(!visible ? "" : _hasSelected.value!.text),
+                        :
+                        Center(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.orange.shade400,
+                            ),
+                            icon: const Icon(Icons.delete, size: 18),
+                            label: const Text("Edit"),
+                            onPressed: () => _sidebarEdit.value = !_sidebarEdit.value,
+                          )
                         ),
-                      )
-                    ),
-
-                    Spacer(
-                      flex: 5,
-                    ),
-
-                    Center(
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.red.shade400,
+                    
+                        Spacer(),
+                    
+                        Center(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red.shade400,
+                            ),
+                            icon: const Icon(Icons.delete, size: 18),
+                            label: const Text("Delete Selection"),
+                            onPressed: () => deleteSelection(),
+                          ),
                         ),
-                        icon: const Icon(Icons.delete, size: 18),
-                        label: const Text("Delete Selection"),
-                        onPressed: () => deleteSelection(),
-                      ),
-                    ),
-
-                    Spacer(),
-                  ],
+                    
+                        Spacer(),
+                      ],
+                    );
+                  }
                 )
-              );
+              )
+              : Text("");
             }
           )
         ],
@@ -258,6 +388,19 @@ class _PDFState extends State<PDF> {
       _pendingSelectionData!['pdfRect'] as PdfRect,
       _pendingSelectionData!['page'] as PdfPage,
     );
+  }
+
+  // Update a TextSelection/marker from the sidebar
+  void updateTextSelection(PdfMarker marker, String text, String label, String lang) {
+    PdfMarker m = _pdfMarkers.firstWhere((m) => m == marker);
+    m.label = label;
+    TextSelection t = _selections[m.index]!;
+    t.label = label;
+    t.language = lang;
+    t.text = text;
+
+    _sidebarEdit.value = false;
+    _hasSelected.value = null;
   }
   
   // Clear a selection
@@ -452,8 +595,6 @@ class _PDFState extends State<PDF> {
 
   // Text label information
   void _showTextLabelDialog(TextSelection selection) {
-    const List<String> labels = ['Title', 'Caption', 'Paragraph', 'Author'];
-    const List<String> languages = ['English', 'Not English', 'Other'];
     String dropdownLabel = 'Title';
     String dropdownLanguage = 'English';
 
@@ -473,7 +614,7 @@ class _PDFState extends State<PDF> {
                   DropdownButton<String>(
                     value: dropdownLabel,
                     isExpanded: true,
-                    items: labels.map((String label) {
+                    items: TEIlabels.map((String label) {
                       return DropdownMenuItem(value: label, child: Text(label));
                     }).toList(),
                     onChanged: (String? newValue) {
@@ -485,7 +626,7 @@ class _PDFState extends State<PDF> {
                   DropdownButton<String>(
                     value: dropdownLanguage,
                     isExpanded: true,
-                    items: languages.map((String language) {
+                    items: TEIlanguages.map((String language) {
                       return DropdownMenuItem(value: language, child: Text(language));
                     }).toList(),
                     onChanged: (String? newValue) {
@@ -589,7 +730,7 @@ class _PDFState extends State<PDF> {
       color: const ui.Color.fromARGB(255, 103, 243, 239).withAlpha(100),
       bounds: selection.bounds,
       pageNumber: selection.pageNumber,
-      text: newLabel,
+      label: newLabel,
       index: _indexCount,
     );
     
@@ -720,7 +861,7 @@ class _PDFState extends State<PDF> {
       final documentRect = _pdfRectToRectInDocument(marker.bounds, page: page, pageRect: pageRect);
       canvas.drawRect(documentRect, paint);
 
-      final paragraph = _buildParagraph(marker.text, documentRect.width, fontSize: 10, color: Colors.black);
+      final paragraph = _buildParagraph(marker.label, documentRect.width, fontSize: 10, color: Colors.black);
       canvas.drawParagraph(paragraph, Offset(documentRect.left + 3, documentRect.top - 12));
     }
   }
@@ -846,7 +987,7 @@ class _PDFState extends State<PDF> {
 
 // Text, Markers & Images classes
 class TextSelection {
-  final String text;
+  String text;
   final PdfRect bounds;
   final int pageNumber;
   final Rect globalRect;
@@ -885,14 +1026,14 @@ class PdfMarker {
   final Color color;
   final PdfRect bounds;
   final int pageNumber;
-  final String text;
+  String label;
   final int index;
 
   PdfMarker({
     required this.color,
     required this.bounds,
     required this.pageNumber,
-    required this.text,
+    required this.label,
     required this.index,
   });
 }
