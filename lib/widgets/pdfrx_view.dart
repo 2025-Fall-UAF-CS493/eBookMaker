@@ -1034,17 +1034,26 @@ class _PDFState extends State<PDF> {
     }
   }
   
-  // Saves the data .txt file to downloads
+  // Saves the data .xml file to downloads
   Future<void> _saveTextToFile(String text) async {
-    final location = await fs.getSaveLocation(suggestedName: 'pdf_annotations.txt');
+    final location = await fs.getSaveLocation(suggestedName: 'pdf_annotations.xml');
     if (location != null) {
       final file = fs.XFile.fromData(
         Uint8List.fromList(utf8.encode(text)),
-        mimeType: 'text/plain',
-        name: 'pdf_annotations.txt',
+        mimeType: 'application/xml',
+        name: 'pdf_annotations.xml',
       );
       await file.saveTo(location.path);
     }
+  }
+
+  String _escapeXml(String input) {
+    return input
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
   }
 
   void _handleExportTrigger() {
@@ -1054,42 +1063,47 @@ class _PDFState extends State<PDF> {
     }
   }
 
-  // Creates the file of data to export
+  // Creates the file of data to export as XML
   Future<void> exportPairedToText() async {
-    final text = StringBuffer();
-    
-    text.writeln('PDF EXTRACTIONS');
-    text.writeln('=' * 50);
-    
+    final xml = StringBuffer();
+    xml.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    xml.writeln('<pdfExtractions>');
+
+    xml.writeln('  <textExtractions>');
     int i = 1;
     for (TextSelection s in _selections.values) {
-      text.writeln('\nTEXT EXTRACTION $i:');
-      text.writeln('-' * 30);
-      text.writeln('  Label: ${s.label}');
-      text.writeln('  Language: ${s.language}'); 
-      text.writeln('  Page: ${s.pageNumber}');
-      text.writeln('  Text: "${s.text}"');
-      text.writeln('  Position: (${s.bounds.left}, ${s.bounds.top}) to (${s.bounds.right}, ${s.bounds.bottom})');
+      xml.writeln('    <textExtraction index="$i">');
+      xml.writeln('      <label>${_escapeXml(s.label)}</label>');
+      xml.writeln('      <language>${_escapeXml(s.language)}</language>');
+      xml.writeln('      <page>${s.pageNumber}</page>');
+      xml.writeln('      <text>${_escapeXml(s.text)}</text>');
+      xml.writeln(
+        '      <bounds left="${s.bounds.left}" top="${s.bounds.top}" right="${s.bounds.right}" bottom="${s.bounds.bottom}" />'
+      );
+      xml.writeln('    </textExtraction>');
       i++;
     }
-    
-    if (_imageAnnotations.isNotEmpty) {
-      text.writeln('\n\nIMAGE EXTRACTIONS');
-      text.writeln('=' * 50);
-      
-      for (int i = 0; i < _imageAnnotations.length; i++) {
-        final img = _imageAnnotations[i];
-        text.writeln('\nIMAGE ${i + 1}:');
-        text.writeln('  File: ${img.fileName}');
-        text.writeln('  Type: ${img.type}');
-        text.writeln('  Name: ${img.name}');
-        text.writeln('  Page: ${img.pageNumber}');
-        text.writeln('  Position: (${img.bounds.left}, ${img.bounds.top}) to (${img.bounds.right}, ${img.bounds.bottom})');
-        text.writeln('  Size: ${img.imageBytes.length} bytes');
-      }
+    xml.writeln('  </textExtractions>');
+
+    xml.writeln('  <imageExtractions>');
+    for (int j = 0; j < _imageAnnotations.length; j++) {
+      final img = _imageAnnotations[j];
+      xml.writeln('    <imageExtraction index="${j + 1}">');
+      xml.writeln('      <file>${_escapeXml(img.fileName)}</file>');
+      xml.writeln('      <type>${_escapeXml(img.type)}</type>');
+      xml.writeln('      <name>${_escapeXml(img.name)}</name>');
+      xml.writeln('      <page>${img.pageNumber}</page>');
+      xml.writeln(
+        '      <bounds left="${img.bounds.left}" top="${img.bounds.top}" right="${img.bounds.right}" bottom="${img.bounds.bottom}" />'
+      );
+      xml.writeln('      <sizeBytes>${img.imageBytes.length}</sizeBytes>');
+      xml.writeln('    </imageExtraction>');
     }
-    
-    await _saveTextToFile(text.toString());
+    xml.writeln('  </imageExtractions>');
+
+    xml.writeln('</pdfExtractions>');
+
+    await _saveTextToFile(xml.toString());
   }
 
   // ============================
