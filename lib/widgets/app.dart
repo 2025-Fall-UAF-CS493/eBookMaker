@@ -155,11 +155,12 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
           ),
         ),
         actions: [
-          TextButton(
+          FilledButton.icon(
+            label: const Text("Close"),
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: const Text('Close'),
+            icon: const Icon(Icons.highlight_off_rounded, size: 18)
           ),
         ],
       );
@@ -218,11 +219,12 @@ Widget _buildHelpSection(String title, List<String> points) {
               ValueListenableBuilder<bool>(
                 valueListenable: selectModeNotifier,
                 builder: (_, selectMode, _) {
-                  return FilledButton(
+                  return FilledButton.icon(
                     style: const ButtonStyle(
                     backgroundColor: WidgetStatePropertyAll<Color>(Color.fromARGB(255, 255, 205, 0)),
                     ),
-                    child: Text(
+                    icon: const Icon(Icons.crop_free_rounded, size: 18, color: Color.fromARGB(255, 17, 28, 78)),
+                    label: Text(
                       selectMode ? "Selecting On" : "Select", 
                       style: TextStyle(
                       color: Color.fromARGB(255, 17, 28, 78),
@@ -235,9 +237,10 @@ Widget _buildHelpSection(String title, List<String> points) {
                 },
               ),
               const SizedBox(width: 10),
-              FilledButton(
+              FilledButton.icon(
+                icon: const Icon(Icons.save_alt_rounded, size: 18),
                 onPressed: _triggerExport,
-                child: const Text(
+                label: const Text(
                   'Export', 
                   style: TextStyle(
                   fontSize: 14,
@@ -245,18 +248,20 @@ Widget _buildHelpSection(String title, List<String> points) {
                 ), 
               ),
               const SizedBox(width: 10),
-              FilledButton(
+              FilledButton.icon(
+                icon: const Icon(Icons.description_rounded, size: 18),
                 onPressed: openFile,
-                child: const Text(
+                label: const Text(
                   'Open File', 
                   style: TextStyle(
                   fontSize: 14,
                   ),),
               ),
               const SizedBox(width: 10),
-              FilledButton(
+              FilledButton.icon(
+                icon: const Icon(Icons.help_outline_rounded, size: 18),
                 onPressed: _showHelp,
-                child: const Text(
+                label: const Text(
                   'Help', 
                   style: TextStyle(
                   fontSize: 14,

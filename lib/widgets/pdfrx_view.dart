@@ -377,9 +377,9 @@ class _PDFState extends State<PDF> {
                                 children: [
                                   FilledButton.icon(
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.red.shade400,
+                                      backgroundColor: const Color.fromARGB(255, 135, 209, 230),
                                     ),
-                                    icon: const Icon(Icons.delete, size: 18),
+                                    icon: const Icon(Icons.highlight_off_rounded, size: 18),
                                     label: const Text("Cancel"),
                                     onPressed: () => { 
                                       isImage ?
@@ -388,11 +388,12 @@ class _PDFState extends State<PDF> {
                                       openSidebar(marker, null)
                                     },
                                   ),
+                                  const SizedBox(width: 10),
                                   FilledButton.icon(
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.green.shade400,
+                                      backgroundColor: const Color.fromARGB(255, 35, 97, 146),
                                     ),
-                                    icon: const Icon(Icons.delete, size: 18),
+                                    icon: const Icon(Icons.check_circle_rounded, size: 18),
                                     label: const Text("Save"),
                                     onPressed: isImage ?
                                       () => updateImageSelection(image, _sidebarImageLabel, _sidebarImageName.text)
@@ -406,9 +407,9 @@ class _PDFState extends State<PDF> {
                             Center(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: Colors.orange.shade400,
+                                  backgroundColor: Color.fromARGB(255, 35, 97, 146),
                                 ),
-                                icon: const Icon(Icons.delete, size: 18),
+                                icon: const Icon(Icons.border_color_rounded, size: 18),
                                 label: const Text("Edit"),
                                 onPressed: () => _sidebarEdit.value = !_sidebarEdit.value,
                               )
@@ -580,8 +581,8 @@ class _PDFState extends State<PDF> {
         child: IgnorePointer(
           child: Container(
             decoration: BoxDecoration(
-              color: const ui.Color.fromARGB(108, 180, 146, 242),
-              border: Border.all(color: const ui.Color.fromARGB(255, 129, 95, 244), width: 2),
+              color: const ui.Color.fromARGB(100, 135, 209, 230),
+              border: Border.all(color: const ui.Color.fromARGB(255, 135, 209, 230), width: 2),
             ),
           ),
         ),
@@ -639,35 +640,30 @@ class _PDFState extends State<PDF> {
     return Container(
       padding: const EdgeInsets.all(4.0),
       decoration: BoxDecoration(
-        color: const ui.Color.fromARGB(255, 180, 176, 190),
-        borderRadius: BorderRadius.circular(4.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(50),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: const ui.Color.fromARGB(255, 196, 207, 218),
+        borderRadius: BorderRadius.circular(4.0)
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildLabelOptionButton(
             'Text',
-            Icons.text_fields,
-            const ui.Color.fromARGB(255, 1, 219, 223),
+            Icons.text_fields_rounded,
+            const ui.Color.fromARGB(255, 35, 97, 146),
             () => _showTextLabelDialog(_pendingSelection!),
           ),
           const SizedBox(width: 8),
           _buildLabelOptionButton(
             'Image',
             Icons.image,
-            const ui.Color.fromARGB(255, 61, 196, 66),
+            const ui.Color.fromARGB(255, 255, 205, 0),
             _handleImageExtraction,
+            textColor: Color.fromARGB(255, 17, 28, 78),
+            iconColor: Color.fromARGB(255, 17, 28, 78)
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white, size: 16),
+            icon: const Icon(Icons.close, color: Color.fromARGB(255, 17, 28, 78)),
             onPressed: _clearSelection,
           ),
         ],
@@ -676,7 +672,8 @@ class _PDFState extends State<PDF> {
   }
 
   // Builds the options for the selection label
-  Widget _buildLabelOptionButton(String text, IconData icon, Color color, VoidCallback onPressed) {
+  Widget _buildLabelOptionButton(String text, IconData icon, Color color, VoidCallback onPressed, 
+                            {Color iconColor = Colors.white, Color textColor = Colors.white}) {
     return Material(
       color: color,
       borderRadius: BorderRadius.circular(4),
@@ -688,11 +685,11 @@ class _PDFState extends State<PDF> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 16),
+              Icon(icon, color: iconColor, size: 16),
               const SizedBox(width: 4),
               Text(
                 text,
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -852,7 +849,7 @@ class _PDFState extends State<PDF> {
     _clearOverlays();
 
     final newMarker = PdfMarker(
-      color: const ui.Color.fromARGB(255, 103, 243, 239).withAlpha(100),
+      color: const ui.Color.fromARGB(255, 135, 209, 230).withAlpha(100),
       bounds: selection.bounds,
       pageNumber: selection.pageNumber,
       label: newLabel,
@@ -981,7 +978,7 @@ class _PDFState extends State<PDF> {
     
     for (final marker in markers) {
       final paint = Paint()
-        ..color = marker == _markerSelect.value ? const ui.Color.fromARGB(255, 3, 171, 165).withAlpha(70) : marker.color
+        ..color = marker == _markerSelect.value ? const ui.Color.fromARGB(255, 135, 209, 230).withAlpha(70) : marker.color
         ..style = PaintingStyle.fill;
 
       final documentRect = _pdfRectToRectInDocument(marker.bounds, page: page, pageRect: pageRect);
@@ -1001,7 +998,7 @@ class _PDFState extends State<PDF> {
       final documentRect = _pdfRectToRectInDocument(imageAnnotation.bounds, page: page, pageRect: pageRect);
       
       final paint = Paint()
-        ..color = const ui.Color.fromARGB(255, 107, 240, 136).withAlpha(100)
+        ..color = const ui.Color.fromARGB(255, 255, 205, 0).withAlpha(100)
         ..style = PaintingStyle.fill;
       
       canvas.drawRect(documentRect, paint);
