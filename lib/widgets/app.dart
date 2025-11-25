@@ -111,6 +111,86 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
     }
   }
 
+  void _showHelp() {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text(
+          'eBook Maker - Help Guide',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHelpSection('Getting Started', [
+                '1. Click "Open File" to load a PDF document',
+                '2. Press "Select" to enable selection tools',
+                '3. Use the sidebar to manage your selections'
+              ]),
+              const SizedBox(height: 16),
+              _buildHelpSection('Selecting Text', [
+                '• In Select mode, click and drag to select text areas',
+                '• A popup will appear allowing you to label as Text or Image',
+                '• For text: Choose category (Title, Caption, etc.) and language',
+                '• Text selections appear with light blue highlights'
+              ]),
+              const SizedBox(height: 16),
+              _buildHelpSection('Extracting Images', [
+                '• In Select mode, click and drag to select image areas',
+                '• Choose "Image" from the selection popup',
+                '• Label the image type and provide a custom name',
+                '• Images are saved as PNG files and appear with __________ highlights'
+              ]),
+              const SizedBox(height: 16),
+              _buildHelpSection('Managing Selections', [
+                '• Click on any selection to view/edit in sidebar',
+                '• Use "Edit" button to modify labels and text content',
+                '• Delete unwanted selections with the "Delete" button',
+                '• Export all data as XML using the "Export" button'
+              ]),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Widget _buildHelpSection(String title, List<String> points) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+          color: Color.fromARGB(255, 17, 28, 78),
+        ),
+      ),
+      const SizedBox(height: 8),
+      ...points.map((point) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text(
+          ' $point',
+          style: const TextStyle(fontSize: 16),
+        ),
+      )),
+    ],
+  );
+}
+
   static String? _fileName(String? path) {
     if (path == null) return null;
     final parts = path.split(RegExp(r'[\\/]'));
@@ -122,41 +202,37 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: ValueListenableBuilder<bool>(
-            valueListenable: selectModeNotifier,
-            builder: (_, selectMode, _) {
-              return FilledButton(
-                style: const ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll<Color>(Color.fromARGB(255, 255, 205, 0)),
-                ),
-                child: Text(
-                  selectMode ? "Selecting" : "Select", 
-                  style: TextStyle(
-                  color: Color.fromARGB(255, 17, 28, 78),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onPressed: () => selectModeNotifier.value = !selectMode,
-              );
-            },
-          ),
-        ),
-        Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
-              Expanded(
-                child: ValueListenableBuilder<PdfDocumentRef?>(
-                  valueListenable: documentRef,
-                  builder: (context, docRef, _) {
-                    return Text(
-                      _fileName(docRef?.key.sourceName) ?? 'No document loaded',
-                      style: const TextStyle(fontSize: 16),
-                    );
-                  },
-                ),
+              ValueListenableBuilder<PdfDocumentRef?>(
+                valueListenable: documentRef,
+                builder: (context, docRef, _) {
+                  return Text(
+                    'Current open file: ${_fileName(docRef?.key.sourceName) ?? 'No document loaded'}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  );
+                },
+              ),
+              const Spacer(),
+              ValueListenableBuilder<bool>(
+                valueListenable: selectModeNotifier,
+                builder: (_, selectMode, _) {
+                  return FilledButton(
+                    style: const ButtonStyle(
+                    backgroundColor: WidgetStatePropertyAll<Color>(Color.fromARGB(255, 255, 205, 0)),
+                    ),
+                    child: Text(
+                      selectMode ? "Selecting On" : "Select", 
+                      style: TextStyle(
+                      color: Color.fromARGB(255, 17, 28, 78),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () => selectModeNotifier.value = !selectMode,
+                  );
+                },
               ),
               const SizedBox(width: 10),
               FilledButton(
@@ -168,7 +244,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                   ),
                 ), 
               ),
-              const SizedBox(width: 15),
+              const SizedBox(width: 10),
               FilledButton(
                 onPressed: openFile,
                 child: const Text(
@@ -176,6 +252,16 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                   style: TextStyle(
                   fontSize: 14,
                   ),),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: _showHelp,
+                child: const Text(
+                  'Help', 
+                  style: TextStyle(
+                  fontSize: 14,
+                  ),
+                ), 
               ),
             ],
           ),
