@@ -3,6 +3,7 @@ import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'pdfrx_view.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class EbookMaker extends StatelessWidget {
   const EbookMaker({super.key});
@@ -11,6 +12,21 @@ class EbookMaker extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'eBook Maker',
+      theme: ThemeData( 
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color.fromARGB(255, 35, 97, 146),
+          brightness: Brightness.light,
+        ),
+        textTheme: TextTheme(
+          titleLarge: GoogleFonts.barlow(
+            fontSize: 40,
+            fontWeight: FontWeight.bold,
+            color: Color.fromARGB(255, 17, 28, 78)
+          ),
+          bodyMedium: GoogleFonts.barlowSemiCondensed(),
+          displaySmall: GoogleFonts.barlowSemiCondensed(),
+        ),
+      ),
       home: const HomePage(),
     );
   }
@@ -27,7 +43,10 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Home Page")),
+      appBar: AppBar(
+        title: const Text("Home Page"),
+        toolbarHeight: 80.0,
+      ),
       body: const PDFSelectionWindow(),
     );
   }
@@ -102,39 +121,64 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ValueListenableBuilder<bool>(
-          valueListenable: selectModeNotifier,
-          builder: (_, selectMode, _) {
-            return ElevatedButton(
-              child: Text(selectMode ? "Selecting" : "Select"),
-              onPressed: () => selectModeNotifier.value = !selectMode,
-            );
-          },
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: selectModeNotifier,
+            builder: (_, selectMode, _) {
+              return FilledButton(
+                style: const ButtonStyle(
+                backgroundColor: WidgetStatePropertyAll<Color>(Color.fromARGB(255, 255, 205, 0)),
+                ),
+                child: Text(
+                  selectMode ? "Selecting" : "Select", 
+                  style: TextStyle(
+                  color: Color.fromARGB(255, 17, 28, 78),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onPressed: () => selectModeNotifier.value = !selectMode,
+              );
+            },
+          ),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: ValueListenableBuilder<PdfDocumentRef?>(
-                valueListenable: documentRef,
-                builder: (context, docRef, _) {
-                  return Text(
-                    _fileName(docRef?.key.sourceName) ?? 'No document loaded',
-                    style: const TextStyle(fontSize: 16),
-                  );
-                },
+        Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: ValueListenableBuilder<PdfDocumentRef?>(
+                  valueListenable: documentRef,
+                  builder: (context, docRef, _) {
+                    return Text(
+                      _fileName(docRef?.key.sourceName) ?? 'No document loaded',
+                      style: const TextStyle(fontSize: 16),
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            FilledButton(
-              onPressed: _triggerExport,
-              child: const Text('Export'), 
-            ),
-            const SizedBox(width: 10),
-            FilledButton(
-              onPressed: openFile,
-              child: const Text('Open File'),
-            ),
-          ],
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: _triggerExport,
+                child: const Text(
+                  'Export', 
+                  style: TextStyle(
+                  fontSize: 14,
+                  ),
+                ), 
+              ),
+              const SizedBox(width: 15),
+              FilledButton(
+                onPressed: openFile,
+                child: const Text(
+                  'Open File', 
+                  style: TextStyle(
+                  fontSize: 14,
+                  ),),
+              ),
+            ],
+          ),
         ),
         Expanded(
           child: Padding(
