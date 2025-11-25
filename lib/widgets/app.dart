@@ -44,6 +44,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
         title: const Text("Home Page"),
         toolbarHeight: 80.0,
       ),
