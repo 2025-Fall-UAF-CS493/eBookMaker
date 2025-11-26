@@ -227,6 +227,7 @@ class _PDFState extends State<PDF> {
                                   Expanded(
                                     flex: 8,
                                     child: Card(
+                                      color: Color.fromARGB(255, 135, 209, 230),
                                       child: SingleChildScrollView(
                                         child: Padding(
                                           padding: const EdgeInsets.all(15.0),
@@ -251,6 +252,7 @@ class _PDFState extends State<PDF> {
                                   Padding(
                                     padding: const EdgeInsets.all(10),
                                     child: Card(
+                                      color: Color.fromARGB(255, 135, 209, 230),
                                       child: Padding(
                                         padding: const EdgeInsets.all(10.0),
                                         child: !editMode
@@ -281,6 +283,7 @@ class _PDFState extends State<PDF> {
                                   Padding(
                                     padding: const EdgeInsets.all(10),
                                     child: Card(
+                                      color: Color.fromARGB(255, 135, 209, 230),
                                       child: Padding(
                                         padding: const EdgeInsets.all(10.0),
                                         child: !editMode
@@ -315,10 +318,11 @@ class _PDFState extends State<PDF> {
                                 children: [
                                   Text("Label"),
                                   Padding(
-                                    padding: const EdgeInsets.all(10),
+                                    padding: const EdgeInsets.all(15.0),
                                     child: Card(
+                                      color: Color.fromARGB(255, 135, 209, 230),
                                       child: Padding(
-                                        padding: const EdgeInsets.all(10.0),
+                                        padding: const EdgeInsets.all(15.0),
                                         child: !editMode
                                         ?
                                         Text(image.type)
@@ -346,9 +350,10 @@ class _PDFState extends State<PDF> {
                                   Text("Name"),
                                   Expanded(
                                     child: Card(
+                                      color: Color.fromARGB(255, 135, 209, 230),
                                       child: SingleChildScrollView(
                                         child: Padding(
-                                          padding: const EdgeInsets.all(15.0),
+                                          padding: const EdgeInsets.all(10.0),
                                           child: editMode ? 
                                             TextField(
                                               controller: _sidebarImageName,
@@ -414,8 +419,8 @@ class _PDFState extends State<PDF> {
                                 onPressed: () => _sidebarEdit.value = !_sidebarEdit.value,
                               )
                             ),
-                        
-                            Spacer(flex: 1),
+
+                            const SizedBox(height: 8),
                         
                             Center(
                               child: FilledButton.icon(
