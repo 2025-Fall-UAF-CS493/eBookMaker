@@ -262,7 +262,7 @@ Widget _buildHelpSection(String title, List<String> points) {
               ),
               const SizedBox(width: 10),
               FilledButton.icon(
-                icon: const Icon(Icons.description_rounded, size: 18),
+                icon: const Icon(Icons.upload_file_rounded, size: 18),
                 onPressed: openFile,
                 label: const Text(
                   'Open File', 
