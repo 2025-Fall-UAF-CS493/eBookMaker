@@ -200,11 +200,9 @@ class _PDFState extends State<PDF> {
           ValueListenableBuilder<PdfMarker?>(
             valueListenable: _markerSelect,
             builder: (_, marker, _) {
-
               return ValueListenableBuilder<ImageAnnotation?>(
                 valueListenable: _imageSelect,
                 builder: (_, image, _) {
-
                   final visible = marker != null || image != null;
                   final isImage = image != null;
 
@@ -213,123 +211,128 @@ class _PDFState extends State<PDF> {
                     child: ValueListenableBuilder(
                       valueListenable: _sidebarEdit,
                       builder: (_, editMode, _) {
-                        return Column (
+                        return Column(
                           children: [
                             Spacer(flex: 1),
-                        
+                            
                             // Text Selection Display
                             !isImage ?
-                            Expanded(
-                              flex: 6,
-                              child: Column(
-                                children: [
-                                  Text("Text"),
-                                  Expanded(
-                                    flex: 8,
-                                    child: Card(
-                                      color: Color.fromARGB(255, 135, 209, 230),
-                                      child: SingleChildScrollView(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(15.0),
-                                          child: editMode ? 
-                                            TextField(
-                                              controller: _sidebarText,
-                                              onChanged: (String? newValue) {
-                                                _sidebarText.text = newValue!;
-                                              },
-                                              maxLines: null,
-                                            )
-                                            :
-                                            Text( _selections[marker!.index]!.text)
+                            Column(
+                              children: [
+                                Text("Text", style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14, 
+                                )),
+                                SizedBox(height: 8),
+                                Container(
+                                  constraints: BoxConstraints(
+                                    maxHeight: 120, // Fixed max height
+                                  ),
+                                  child: Card(
+                                    color: ui.Color.fromARGB(255, 184, 235, 249),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: editMode ? 
+                                        TextField(
+                                          controller: _sidebarText,
+                                          onChanged: (String? newValue) {
+                                            _sidebarText.text = newValue!;
+                                          },
+                                          maxLines: null,
+                                        )
+                                        :
+                                        SingleChildScrollView(
+                                          child: Text(
+                                            _selections[marker!.index]!.text,
+                                            softWrap: true,
+                                          ),
                                         ),
+                                    ),
+                                  ),
+                                ),
+                                
+                                SizedBox(height: 16),
+                                
+                                Text("Label", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                                Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Card(
+                                    color: Color.fromARGB(255, 184, 235, 249),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: !editMode
+                                      ?
+                                      Text(marker!.label)
+                                      :
+                                      StatefulBuilder(
+                                        builder: (context, dropDownState) {
+                                          return DropdownButton<String>(
+                                            value: _sidebarLabel,
+                                            isExpanded: true,
+                                            items: TEIlabels.map((String label) {
+                                              return DropdownMenuItem(value: label, child: Text(label));
+                                            }).toList(),
+                                            onChanged: (String? newValue) {
+                                              dropDownState(() => _sidebarLabel = newValue!);
+                                            },
+                                          );
+                                        }
                                       )
-                                    )
-                                  ),
-                              
-                                  Spacer(),
-                              
-                                  Text("Label"),
-                                  Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Card(
-                                      color: Color.fromARGB(255, 135, 209, 230),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(10.0),
-                                        child: !editMode
-                                        ?
-                                        Text(marker!.label)
-                                        :
-                                        StatefulBuilder(
-                                          builder: (context, dropDownState) {
+                                    ),
+                                  )
+                                ),
+                                
+                                SizedBox(height: 16),
+                                
+                                Text("Language", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                                Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Card(
+                                    color: Color.fromARGB(255, 184, 235, 249),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: !editMode
+                                      ?
+                                      Text(_selections[marker!.index]!.language)
+                                      :
+                                      StatefulBuilder(
+                                        builder: (context, dropDownState) {
                                           return DropdownButton<String>(
-                                              value: _sidebarLabel,
-                                              isExpanded: true,
-                                              items: TEIlabels.map((String label) {
-                                                return DropdownMenuItem(value: label, child: Text(label));
-                                              }).toList(),
-                                              onChanged: (String? newValue) {
-                                                dropDownState(() => _sidebarLabel = newValue!);
-                                              },
-                                            );
-                                          }
-                                        )
-                                      ),
-                                    )
-                                  ),
-                              
-                                  Spacer(),
-                              
-                                  Text("Language"),
-                                  Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Card(
-                                      color: Color.fromARGB(255, 135, 209, 230),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(10.0),
-                                        child: !editMode
-                                        ?
-                                        Text(_selections[marker!.index]!.language)
-                                        :
-                                        StatefulBuilder(
-                                          builder: (context, dropDownState) {
-                                          return DropdownButton<String>(
-                                              value: _sidebarLang,
-                                              isExpanded: true,
-                                              items: TEIlanguages.map((String label) {
-                                                return DropdownMenuItem(value: label, child: Text(label));
-                                              }).toList(),
-                                              onChanged: (String? newValue) {
-                                                dropDownState(() => _sidebarLang = newValue!);
-                                              },
-                                            );
-                                          }
-                                        )
-                                      ),
-                                    )
-                                  ),
-                                ],
-                              ),
+                                            value: _sidebarLang,
+                                            isExpanded: true,
+                                            items: TEIlanguages.map((String label) {
+                                              return DropdownMenuItem(value: label, child: Text(label));
+                                            }).toList(),
+                                            onChanged: (String? newValue) {
+                                              dropDownState(() => _sidebarLang = newValue!);
+                                            },
+                                          );
+                                        }
+                                      )
+                                    ),
+                                  )
+                                ),
+                              ],
                             )
                             :
                             // Image Display
                             Expanded(
-                              flex: 4,
-                              child: Column (
+                              flex: 8,
+                              child: Column(
                                 children: [
-                                  Text("Label"),
+                                  Text("Label", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
                                   Padding(
-                                    padding: const EdgeInsets.all(15.0),
+                                    padding: const EdgeInsets.all(6),
                                     child: Card(
-                                      color: Color.fromARGB(255, 135, 209, 230),
+                                      color: Color.fromARGB(255, 184, 235, 249),
                                       child: Padding(
-                                        padding: const EdgeInsets.all(15.0),
+                                        padding: const EdgeInsets.all(12),
                                         child: !editMode
                                         ?
                                         Text(image.type)
                                         :
                                         StatefulBuilder(
                                           builder: (context, dropDownState) {
-                                          return DropdownButton<String>(
+                                            return DropdownButton<String>(
                                               value: _sidebarImageLabel,
                                               isExpanded: true,
                                               items: imageTypes.map((String label) {
@@ -344,37 +347,34 @@ class _PDFState extends State<PDF> {
                                       ),
                                     )
                                   ),
-                              
-                                  Spacer(),
-                              
-                                  Text("Name"),
-                                  Expanded(
+
+                                  SizedBox(height: 16),
+
+                                  Text("Name", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                                  Padding(
+                                    padding: const EdgeInsets.all(6),
                                     child: Card(
-                                      color: Color.fromARGB(255, 135, 209, 230),
-                                      child: SingleChildScrollView(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(10.0),
-                                          child: editMode ? 
-                                            TextField(
-                                              controller: _sidebarImageName,
-                                              onChanged: (String? newValue) {
-                                                _sidebarImageName.text = newValue!;
-                                              },
-                                            )
-                                            :
-                                            Text(image.name)
-                                        ),
-                                      )
+                                      color: Color.fromARGB(255, 184, 235, 249),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: editMode ? 
+                                          TextField(
+                                            controller: _sidebarImageName,
+                                            onChanged: (String? newValue) {
+                                              _sidebarImageName.text = newValue!;
+                                            },
+                                          )
+                                          :
+                                          Text(image.name),
+                                      ),
                                     )
                                   ),
-                              
                                 ],
                               ),
                             ),
                             
-                        
-                            Spacer(flex: 1),
-                        
+                            Spacer(),
+                            
                             editMode ?
                             Center(
                               child: Row(
@@ -421,7 +421,7 @@ class _PDFState extends State<PDF> {
                             ),
 
                             const SizedBox(height: 8),
-                        
+                            
                             Center(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
@@ -432,14 +432,14 @@ class _PDFState extends State<PDF> {
                                 onPressed: () => deleteSelection(),
                               ),
                             ),
-                        
+                            
                             Spacer(),
                           ],
                         );
                       }
                     )
                   )
-                  : Text("");
+                  : SizedBox.shrink();
                 }
               );
             }
@@ -449,6 +449,8 @@ class _PDFState extends State<PDF> {
     );
   }
   
+
+
   // ==========================
   // === SELECTION HANDLING ===
   // ==========================
@@ -738,7 +740,7 @@ class _PDFState extends State<PDF> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Category:'),
+                  const Text('Category:', style: TextStyle(fontWeight: FontWeight.bold)),
                   DropdownButton<String>(
                     value: dropdownLabel,
                     isExpanded: true,
@@ -750,7 +752,7 @@ class _PDFState extends State<PDF> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text('Language:'),
+                  const Text('Language:', style: TextStyle(fontWeight: FontWeight.bold)),
                   DropdownButton<String>(
                     value: dropdownLanguage,
                     isExpanded: true,
@@ -796,7 +798,7 @@ class _PDFState extends State<PDF> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Image Type:'),
+                  const Text('Image Type:', style: TextStyle(fontWeight: FontWeight.bold)),
                   DropdownButton<String>(
                     value: selectedImageType,
                     isExpanded: true,
@@ -808,7 +810,7 @@ class _PDFState extends State<PDF> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text('Custom Label:'),
+                  const Text('Custom Label:', style: TextStyle(fontWeight: FontWeight.bold)),
                   TextField(
                     decoration: const InputDecoration(
                       hintText: 'Enter a custom label...',

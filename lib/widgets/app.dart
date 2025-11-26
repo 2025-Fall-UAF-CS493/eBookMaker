@@ -18,13 +18,25 @@ class EbookMaker extends StatelessWidget {
           brightness: Brightness.light,
         ),
         textTheme: TextTheme(
+          bodyLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          bodyMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          bodySmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
           titleLarge: GoogleFonts.barlow(
             fontSize: 40,
             fontWeight: FontWeight.bold,
             color: Color.fromARGB(255, 17, 28, 78)
           ),
-          bodyMedium: GoogleFonts.barlowSemiCondensed(),
-          displaySmall: GoogleFonts.barlowSemiCondensed(),
+          titleMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          titleSmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          displayLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          displayMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          displaySmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          labelLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          labelMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          labelSmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          headlineLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          headlineMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          headlineSmall: GoogleFonts.barlow(fontWeight: FontWeight.w500)
         ),
       ),
       home: const HomePage(),
@@ -136,14 +148,14 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                 '• In Select mode, click and drag to select text areas',
                 '• A popup will appear allowing you to label as Text or Image',
                 '• For text: Choose category (Title, Caption, etc.) and language',
-                '• Text selections appear with light blue highlights'
+                '• Text selections appear with highlights'
               ]),
               const SizedBox(height: 16),
               _buildHelpSection('Extracting Images', [
                 '• In Select mode, click and drag to select image areas',
                 '• Choose "Image" from the selection popup',
                 '• Label the image type and provide a custom name',
-                '• Images are saved as PNG files and appear with __________ highlights'
+                '• Images are saved as PNG files and appear with highlights'
               ]),
               const SizedBox(height: 16),
               _buildHelpSection('Managing Selections', [
