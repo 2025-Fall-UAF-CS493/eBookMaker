@@ -22,12 +22,14 @@ class PDF extends StatefulWidget {
   final ValueNotifier<bool> selectModeNotifier;
   final PdfDocumentRef? documentRef;
   final ValueNotifier<bool>? exportTrigger; 
+  final ValueNotifier<bool>? clearAllTrigger;
 
   const PDF({
     super.key, 
     required this.selectModeNotifier, 
     this.documentRef,
     this.exportTrigger,
+    this.clearAllTrigger,
   });
 
   @override
@@ -78,11 +80,14 @@ class _PDFState extends State<PDF> {
   void initState() {
     super.initState();
     widget.exportTrigger?.addListener(_handleExportTrigger);
+    widget.clearAllTrigger?.addListener(_handleClearAllTrigger);
+
   }
 
   @override
   void dispose() {
     widget.exportTrigger?.removeListener(_handleExportTrigger);
+      widget.clearAllTrigger?.removeListener(_handleClearAllTrigger);
     super.dispose();
   }
 
@@ -91,6 +96,15 @@ class _PDFState extends State<PDF> {
     super.didUpdateWidget(oldWidget);
     if (widget.documentRef != oldWidget.documentRef) {
       _clearAllSelections();
+    }
+  }
+
+  void _handleClearAllTrigger() {
+    if (widget.clearAllTrigger?.value == true) {
+      _clearAllSelections();
+      closeSidebar();
+      widget.clearAllTrigger?.value = false;
+      _safeSetState(() {});
     }
   }
 

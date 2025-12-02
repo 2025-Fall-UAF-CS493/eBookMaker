@@ -76,6 +76,7 @@ class PDFSelectionWindow extends StatefulWidget {
 
 class _PDFSelectState extends State<PDFSelectionWindow> {
   late final ValueNotifier<bool> selectModeNotifier;
+  late final ValueNotifier<bool> clearAllTrigger;
   final documentRef = ValueNotifier<PdfDocumentRef?>(null);
   final ValueNotifier<bool> exportTrigger = ValueNotifier<bool>(false); 
 
@@ -83,6 +84,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   void initState() {
     super.initState();
     selectModeNotifier = ValueNotifier(false);
+    clearAllTrigger = ValueNotifier(false);
     openInitialFile();
   }
 
@@ -90,6 +92,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   void dispose() {
     selectModeNotifier.dispose();
     exportTrigger.dispose();
+    clearAllTrigger.dispose();
     super.dispose();
   }
 
@@ -181,7 +184,11 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
       );
     },
   );
-}
+  }
+
+  void clearAll() {
+    clearAllTrigger.value = true;
+  }
 
 Widget _buildHelpSection(String title, List<String> points) {
   return Column(
@@ -253,6 +260,19 @@ Widget _buildHelpSection(String title, List<String> points) {
               ),
               const SizedBox(width: 10),
               FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade400,
+                ),
+                icon: const Icon(Icons.delete, size: 18),
+                onPressed: clearAll,
+                label: const Text(
+                  'Clear All', 
+                  style: TextStyle(
+                  fontSize: 14,
+                  ),),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.icon(
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
                 onPressed: _triggerExport,
                 label: const Text(
@@ -304,6 +324,7 @@ Widget _buildHelpSection(String title, List<String> points) {
                         selectModeNotifier: selectModeNotifier,
                         documentRef: docRef,
                         exportTrigger: exportTrigger,
+                        clearAllTrigger: clearAllTrigger,
                       ),
                     );
                   },
