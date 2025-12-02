@@ -1,3 +1,5 @@
+// Script for building the app's GUI and setting styling info
+
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';

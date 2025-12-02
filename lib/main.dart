@@ -1,3 +1,4 @@
+// Launch the Flutter application and import necessary packages
 
 import 'package:flutter/material.dart';
 

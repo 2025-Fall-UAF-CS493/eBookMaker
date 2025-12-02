@@ -1,3 +1,10 @@
+// Main app interface, using pdfrx framework
+// pdfrx tutorial/docs: https://github.com/espresso3389/pdfrx/tree/master/doc
+
+// Allows user to make selections, classify them, export XML data,
+// open PDF files, and access help functionality
+
+
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';

@@ -1,3 +1,5 @@
+// Load a PDF file, manage PDF state, and add user interacton functionalities
+
 import 'package:flutter/widgets.dart';
 import 'package:pdfx/pdfx.dart';
 
