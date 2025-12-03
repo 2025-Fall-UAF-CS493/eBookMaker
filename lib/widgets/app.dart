@@ -1,3 +1,5 @@
+// Script for building the app's GUI and setting styling info
+
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
@@ -18,13 +20,25 @@ class EbookMaker extends StatelessWidget {
           brightness: Brightness.light,
         ),
         textTheme: TextTheme(
+          bodyLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          bodyMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          bodySmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
           titleLarge: GoogleFonts.barlow(
             fontSize: 40,
             fontWeight: FontWeight.bold,
             color: Color.fromARGB(255, 17, 28, 78)
           ),
-          bodyMedium: GoogleFonts.barlowSemiCondensed(),
-          displaySmall: GoogleFonts.barlowSemiCondensed(),
+          titleMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          titleSmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          displayLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          displayMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          displaySmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          labelLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          labelMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          labelSmall: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          headlineLarge: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          headlineMedium: GoogleFonts.barlow(fontWeight: FontWeight.w500),
+          headlineSmall: GoogleFonts.barlow(fontWeight: FontWeight.w500)
         ),
       ),
       home: const HomePage(),
@@ -44,6 +58,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
         title: const Text("Home Page"),
         toolbarHeight: 80.0,
       ),
@@ -61,6 +76,7 @@ class PDFSelectionWindow extends StatefulWidget {
 
 class _PDFSelectState extends State<PDFSelectionWindow> {
   late final ValueNotifier<bool> selectModeNotifier;
+  late final ValueNotifier<bool> clearAllTrigger;
   final documentRef = ValueNotifier<PdfDocumentRef?>(null);
   final ValueNotifier<bool> exportTrigger = ValueNotifier<bool>(false); 
 
@@ -68,6 +84,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   void initState() {
     super.initState();
     selectModeNotifier = ValueNotifier(false);
+    clearAllTrigger = ValueNotifier(false);
     openInitialFile();
   }
 
@@ -75,6 +92,7 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
   void dispose() {
     selectModeNotifier.dispose();
     exportTrigger.dispose();
+    clearAllTrigger.dispose();
     super.dispose();
   }
 
@@ -135,14 +153,14 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
                 '• In Select mode, click and drag to select text areas',
                 '• A popup will appear allowing you to label as Text or Image',
                 '• For text: Choose category (Title, Caption, etc.) and language',
-                '• Text selections appear with light blue highlights'
+                '• Text selections appear with highlights'
               ]),
               const SizedBox(height: 16),
               _buildHelpSection('Extracting Images', [
                 '• In Select mode, click and drag to select image areas',
                 '• Choose "Image" from the selection popup',
                 '• Label the image type and provide a custom name',
-                '• Images are saved as PNG files and appear with __________ highlights'
+                '• Images are saved as PNG files and appear with highlights'
               ]),
               const SizedBox(height: 16),
               _buildHelpSection('Managing Selections', [
@@ -166,7 +184,11 @@ class _PDFSelectState extends State<PDFSelectionWindow> {
       );
     },
   );
-}
+  }
+
+  void clearAll() {
+    clearAllTrigger.value = true;
+  }
 
 Widget _buildHelpSection(String title, List<String> points) {
   return Column(
@@ -238,6 +260,19 @@ Widget _buildHelpSection(String title, List<String> points) {
               ),
               const SizedBox(width: 10),
               FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade400,
+                ),
+                icon: const Icon(Icons.delete, size: 18),
+                onPressed: clearAll,
+                label: const Text(
+                  'Clear All', 
+                  style: TextStyle(
+                  fontSize: 14,
+                  ),),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.icon(
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
                 onPressed: _triggerExport,
                 label: const Text(
@@ -249,7 +284,7 @@ Widget _buildHelpSection(String title, List<String> points) {
               ),
               const SizedBox(width: 10),
               FilledButton.icon(
-                icon: const Icon(Icons.description_rounded, size: 18),
+                icon: const Icon(Icons.upload_file_rounded, size: 18),
                 onPressed: openFile,
                 label: const Text(
                   'Open File', 
@@ -289,6 +324,7 @@ Widget _buildHelpSection(String title, List<String> points) {
                         selectModeNotifier: selectModeNotifier,
                         documentRef: docRef,
                         exportTrigger: exportTrigger,
+                        clearAllTrigger: clearAllTrigger,
                       ),
                     );
                   },
