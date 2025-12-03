@@ -14,9 +14,23 @@ import 'package:file_selector/file_selector.dart' as fs;
 import 'package:image/image.dart' as img;
 
 // Dropdown Options
-const List<String> TEIlabels = ['Title', 'Caption', 'Paragraph', 'Author'];
 const List<String> TEIlanguages = ['English', 'Not English', 'Other'];
-const List<String> imageTypes = ['Figure', 'Diagram', 'Photo', 'Drawing', 'Other'];
+
+// Assigning colors 
+final Map<String, Color> TEIlabels = {
+  'Title': Color.fromARGB(255, 0, 0, 255),       // Blue
+  'Caption': Color.fromARGB(255, 0, 128, 0),     // Green
+  'Paragraph': Color.fromARGB(255, 255, 165, 0), // Orange
+  'Author': Color.fromARGB(255, 128, 0, 128),    // Purple
+};
+
+final Map<String, Color> imageTypes = {
+  'Figure': Color.fromARGB(255, 0, 255, 255),    // Cyan
+  'Diagram': Color.fromARGB(255, 75, 0, 130),    // Indigo
+  'Photo': Color.fromARGB(255, 0, 128, 128),     // Teal
+  'Drawing': Color.fromARGB(255, 165, 42, 42),   // Brown
+  'Other': Color.fromARGB(255, 0, 0, 0),         // Black
+};
 
 class PDF extends StatefulWidget {
   final ValueNotifier<bool> selectModeNotifier;
@@ -242,7 +256,7 @@ class _PDFState extends State<PDF> {
                       child: ValueListenableBuilder(
                         valueListenable: _sidebarEdit,
                         builder: (_, editMode, __) {
-                          return SingleChildScrollView(    // <-- ADDED SCROLL
+                          return SingleChildScrollView(   
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
@@ -318,7 +332,7 @@ class _PDFState extends State<PDF> {
                                                     return DropdownButton<String>(
                                                       value: _sidebarLabel,
                                                       isExpanded: true,
-                                                      items: TEIlabels
+                                                      items: TEIlabels.keys
                                                           .map((String label) =>
                                                               DropdownMenuItem(
                                                                   value: label,
@@ -395,7 +409,7 @@ class _PDFState extends State<PDF> {
                                                     return DropdownButton<String>(
                                                       value: _sidebarImageLabel,
                                                       isExpanded: true,
-                                                      items: imageTypes
+                                                      items: imageTypes.keys
                                                           .map((String type) =>
                                                               DropdownMenuItem(
                                                                   value: type,
@@ -552,6 +566,7 @@ class _PDFState extends State<PDF> {
       final pageText = await topLeft.page.loadStructuredText();
       final fragments = pageText.fragments.where((frag) => pdfRect.overlaps(frag.bounds)).toList();
       final selectedText = fragments.map((f) => f.text).join('');
+      final color = TEIlabels[_selections.length + 1] ?? Color.fromARGB(255, 135, 209, 230);
       
       if (fragments.isNotEmpty) {
         _pendingSelection = TextSelection(
@@ -560,6 +575,7 @@ class _PDFState extends State<PDF> {
           pageNumber: topLeft.page.pageNumber,
           globalRect: _getGlobalRect(selRect),
           label: 'Selection ${_selections.length + 1}',
+          color: color,
           language: 'Undefined'
         );
       }
@@ -590,6 +606,7 @@ class _PDFState extends State<PDF> {
     t.label = label;
     t.language = lang;
     t.text = text;
+    t.color = TEIlabels[label] as Color;
 
     closeSidebar();
   }
@@ -814,7 +831,7 @@ class _PDFState extends State<PDF> {
                   DropdownButton<String>(
                     value: dropdownLabel,
                     isExpanded: true,
-                    items: TEIlabels.map((String label) {
+                    items: TEIlabels.keys.map((String label) {
                       return DropdownMenuItem(value: label, child: Text(label));
                     }).toList(),
                     onChanged: (String? newValue) {
@@ -872,7 +889,7 @@ class _PDFState extends State<PDF> {
                   DropdownButton<String>(
                     value: selectedImageType,
                     isExpanded: true,
-                    items: imageTypes.map((String type) {
+                    items: imageTypes.keys.map((String type) {
                       return DropdownMenuItem(value: type, child: Text(type));
                     }).toList(),
                     onChanged: (String? newValue) {
@@ -925,8 +942,9 @@ class _PDFState extends State<PDF> {
   void _finalizeTextSelection(TextSelection selection, String newLabel, String language) {
     _clearOverlays();
 
+    final color = TEIlabels[newLabel] ?? Color.fromARGB(255, 135, 209, 230);
     final newMarker = PdfMarker(
-      color: const ui.Color.fromARGB(255, 135, 209, 230).withAlpha(100),
+      color: color.withAlpha(100),
       bounds: selection.bounds,
       pageNumber: selection.pageNumber,
       label: newLabel,
@@ -1021,6 +1039,7 @@ class _PDFState extends State<PDF> {
     final pixels = _pendingImageData!['pixels'] as Uint8List;
     final pdfRect = _pendingImageData!['pdfRect'] as PdfRect;
     final pageNumber = _pendingImageData!['pageNumber'] as int;
+    final color = imageTypes[imageType] ?? Color.fromARGB(255, 135, 209, 230);
     
     final timestamp = DateTime.now();
     final fileName = '${imageType.toLowerCase()}_page${pageNumber}_${label}_$timestamp.png';
@@ -1034,6 +1053,7 @@ class _PDFState extends State<PDF> {
       pageNumber: pageNumber,
       type: imageType,
       name: label,
+      color: color,
     ));
     
     _pendingImageData = null;
@@ -1075,7 +1095,7 @@ class _PDFState extends State<PDF> {
       final documentRect = _pdfRectToRectInDocument(imageAnnotation.bounds, page: page, pageRect: pageRect);
       
       final paint = Paint()
-        ..color = const ui.Color.fromARGB(255, 255, 205, 0).withAlpha(100)
+        ..color = imageAnnotation.color.withAlpha(100)
         ..style = PaintingStyle.fill;
       
       canvas.drawRect(documentRect, paint);
@@ -1207,6 +1227,7 @@ class TextSelection {
   final int pageNumber;
   final Rect globalRect;
   String label;
+  Color color;
   String language;
 
   TextSelection({
@@ -1215,6 +1236,7 @@ class TextSelection {
     required this.pageNumber,
     required this.globalRect,
     required this.label,
+    required this.color,
     required this.language,
   });
 
@@ -1224,6 +1246,7 @@ class TextSelection {
     int? pageNumber,
     Rect? globalRect,
     String? label,
+    Color? color,
     String? language,
   }) {
     return TextSelection(
@@ -1232,6 +1255,7 @@ class TextSelection {
       pageNumber: pageNumber ?? this.pageNumber,
       globalRect: globalRect ?? this.globalRect,
       label: label ?? this.label,
+      color: color ?? this.color,
       language: language ?? this.language, 
     );
   }
@@ -1260,6 +1284,7 @@ class ImageAnnotation {
   final int pageNumber;
   String type;
   String name;
+  Color color;
 
   ImageAnnotation({
     required this.imageBytes,
@@ -1268,5 +1293,6 @@ class ImageAnnotation {
     required this.pageNumber,
     required this.type,
     required this.name,
+    required this.color,
   });
 }
