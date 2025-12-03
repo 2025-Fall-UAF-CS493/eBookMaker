@@ -230,10 +230,10 @@ class _PDFState extends State<PDF> {
                   return visible ? Container(
                     width: 250,
                     decoration: BoxDecoration(
-                      border: Border( 
+                      border: Border(
                         left: BorderSide(
-                        color: Color.fromARGB(255, 35, 97, 146),
-                        width: 3.0,
+                          color: Color.fromARGB(255, 35, 97, 146),
+                          width: 3.0,
                         ),
                       ),
                     ),
@@ -241,253 +241,275 @@ class _PDFState extends State<PDF> {
                       padding: const EdgeInsets.only(left: 10.0),
                       child: ValueListenableBuilder(
                         valueListenable: _sidebarEdit,
-                        builder: (_, editMode, _) {
-                          return Column(
-                            children: [
-
-                              // Close button row
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.highlight_off_rounded, size: 20, 
-                                        color: Color.fromARGB(255, 17, 28, 78)),
-                                      onPressed: closeSidebar,
-                                    ),
-                                  ],
+                        builder: (_, editMode, __) {
+                          return SingleChildScrollView(    // <-- ADDED SCROLL
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // --- Close button ---
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.highlight_off_rounded,
+                                          size: 20,
+                                          color: Color.fromARGB(255, 17, 28, 78),
+                                        ),
+                                        onPressed: closeSidebar,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
 
-                              SizedBox(height: 16),
-                              
-                              // Text Selection Display
-                              !isImage ?
-                              Column(
-                                children: [
-                                  Text("Text", style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 14, 
-                                  )),
-                                  SizedBox(height: 8),
-                                  Container(
-                                    constraints: BoxConstraints(
-                                      maxHeight: 120, // Fixed max height
-                                    ),
-                                    child: Card(
-                                      color: ui.Color.fromARGB(255, 184, 235, 249),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: editMode ? 
-                                          TextField(
-                                            controller: _sidebarText,
-                                            onChanged: (String? newValue) {
-                                              _sidebarText.text = newValue!;
-                                            },
-                                            maxLines: null,
-                                          )
-                                          :
-                                          SingleChildScrollView(
-                                            child: Text(
-                                              _selections[marker!.index]!.text,
-                                              softWrap: true,
-                                            ),
+                                SizedBox(height: 16),
+
+                                // ===========================================================
+                                // =============== TEXT SIDEBAR CONTENT ======================
+                                // ===========================================================
+                                if (!isImage)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "Text",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                      SizedBox(height: 8),
+                                      Container(
+                                        constraints: BoxConstraints(maxHeight: 120),
+                                        child: Card(
+                                          color: ui.Color.fromARGB(255, 184, 235, 249),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(12.0),
+                                            child: editMode
+                                                ? TextField(
+                                                    controller: _sidebarText,
+                                                    maxLines: null,
+                                                  )
+                                                : SingleChildScrollView(
+                                                    child: Text(
+                                                      _selections[marker!.index]!.text,
+                                                      softWrap: true,
+                                                    ),
+                                                  ),
                                           ),
-                                      ),
-                                    ),
-                                  ),
-                                  
-                                  SizedBox(height: 16),
-                                  
-                                  Text("Label", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                                  Padding(
-                                    padding: const EdgeInsets.all(6),
-                                    child: Card(
-                                      color: Color.fromARGB(255, 184, 235, 249),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: !editMode
-                                        ?
-                                        Text(marker!.label)
-                                        :
-                                        StatefulBuilder(
-                                          builder: (context, dropDownState) {
-                                            return DropdownButton<String>(
-                                              value: _sidebarLabel,
-                                              isExpanded: true,
-                                              items: TEIlabels.map((String label) {
-                                                return DropdownMenuItem(value: label, child: Text(label));
-                                              }).toList(),
-                                              onChanged: (String? newValue) {
-                                                dropDownState(() => _sidebarLabel = newValue!);
-                                              },
-                                            );
-                                          }
-                                        )
-                                      ),
-                                    )
-                                  ),
-                                  
-                                  SizedBox(height: 16),
-                                  
-                                  Text("Language", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                                  Padding(
-                                    padding: const EdgeInsets.all(6),
-                                    child: Card(
-                                      color: Color.fromARGB(255, 184, 235, 249),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: !editMode
-                                        ?
-                                        Text(_selections[marker!.index]!.language)
-                                        :
-                                        StatefulBuilder(
-                                          builder: (context, dropDownState) {
-                                            return DropdownButton<String>(
-                                              value: _sidebarLang,
-                                              isExpanded: true,
-                                              items: TEIlanguages.map((String label) {
-                                                return DropdownMenuItem(value: label, child: Text(label));
-                                              }).toList(),
-                                              onChanged: (String? newValue) {
-                                                dropDownState(() => _sidebarLang = newValue!);
-                                              },
-                                            );
-                                          }
-                                        )
-                                      ),
-                                    )
-                                  ),
-                                ],
-                              )
-                              :
-                              // Image Display
-                              Expanded(
-                                flex: 8,
-                                child: Column(
-                                  children: [
-                                    Text("Label", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                                    Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Card(
-                                        color: Color.fromARGB(255, 184, 235, 249),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: !editMode
-                                          ?
-                                          Text(image.type)
-                                          :
-                                          StatefulBuilder(
-                                            builder: (context, dropDownState) {
-                                              return DropdownButton<String>(
-                                                value: _sidebarImageLabel,
-                                                isExpanded: true,
-                                                items: imageTypes.map((String label) {
-                                                  return DropdownMenuItem(value: label, child: Text(label));
-                                                }).toList(),
-                                                onChanged: (String? newValue) {
-                                                  dropDownState(() => _sidebarImageLabel = newValue!);
-                                                },
-                                              );
-                                            }
-                                          )
                                         ),
-                                      )
-                                    ),
+                                      ),
 
-                                    SizedBox(height: 12),
+                                      SizedBox(height: 16),
 
-                                    Text("Name", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                                    Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Card(
-                                        color: Color.fromARGB(255, 184, 235, 249),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: editMode ? 
-                                            TextField(
-                                              controller: _sidebarImageName,
-                                              onChanged: (String? newValue) {
-                                                _sidebarImageName.text = newValue!;
-                                              },
-                                            )
-                                            :
-                                            Text(image.name),
+                                      Text("Label",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w800, fontSize: 14)),
+                                      Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Card(
+                                          color: Color.fromARGB(255, 184, 235, 249),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(12),
+                                            child: !editMode
+                                                ? Text(marker!.label)
+                                                : StatefulBuilder(builder:
+                                                    (context, dropDownState) {
+                                                    return DropdownButton<String>(
+                                                      value: _sidebarLabel,
+                                                      isExpanded: true,
+                                                      items: TEIlabels
+                                                          .map((String label) =>
+                                                              DropdownMenuItem(
+                                                                  value: label,
+                                                                  child: Text(label)))
+                                                          .toList(),
+                                                      onChanged: (String? newValue) {
+                                                        dropDownState(() =>
+                                                            _sidebarLabel = newValue!);
+                                                      },
+                                                    );
+                                                  }),
+                                          ),
                                         ),
-                                      )
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              
-                              Spacer(),
-                              
-                              editMode ?
-                              Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    FilledButton.icon(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(255, 135, 209, 230),
                                       ),
-                                      icon: const Icon(Icons.highlight_off_rounded, size: 18),
-                                      label: const Text("Cancel"),
-                                      onPressed: () => { 
-                                        isImage ?
-                                        openSidebar(null, image)
-                                        :
-                                        openSidebar(marker, null)
-                                      },
-                                    ),
-                                    const SizedBox(width: 10),
-                                    FilledButton.icon(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(255, 35, 97, 146),
-                                      ),
-                                      icon: const Icon(Icons.check_circle_rounded, size: 18),
-                                      label: const Text("Save"),
-                                      onPressed: isImage ?
-                                        () => updateImageSelection(image, _sidebarImageLabel, _sidebarImageName.text)
-                                        :
-                                        () => updateTextSelection(marker!, _sidebarText.text, _sidebarLabel, _sidebarLang),
-                                    )
-                                  ],
-                                ),
-                              )
-                              :
-                              Center(
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: Color.fromARGB(255, 35, 97, 146),
-                                  ),
-                                  icon: const Icon(Icons.border_color_rounded, size: 18),
-                                  label: const Text("Edit"),
-                                  onPressed: () => _sidebarEdit.value = !_sidebarEdit.value,
-                                )
-                              ),
 
-                              const SizedBox(height: 8),
-                              
-                              Center(
-                                child: FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: Colors.red.shade400,
+                                      SizedBox(height: 16),
+
+                                      Text("Language",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w800, fontSize: 14)),
+                                      Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Card(
+                                          color: Color.fromARGB(255, 184, 235, 249),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(12),
+                                            child: !editMode
+                                                ? Text(_selections[marker!.index]!.language)
+                                                : StatefulBuilder(builder:
+                                                    (context, dropDownState) {
+                                                    return DropdownButton<String>(
+                                                      value: _sidebarLang,
+                                                      isExpanded: true,
+                                                      items: TEIlanguages
+                                                          .map(
+                                                            (String lang) =>
+                                                                DropdownMenuItem(
+                                                                    value: lang,
+                                                                    child: Text(lang)),
+                                                          )
+                                                          .toList(),
+                                                      onChanged: (String? newValue) {
+                                                        dropDownState(() =>
+                                                            _sidebarLang = newValue!);
+                                                      },
+                                                    );
+                                                  }),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  icon: const Icon(Icons.delete, size: 18),
-                                  label: const Text("Delete Selection"),
-                                  onPressed: () => deleteSelection(),
+
+                                // ===========================================================
+                                // ================ IMAGE SIDEBAR CONTENT ====================
+                                // ===========================================================
+                                if (isImage)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text("Label",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w800, fontSize: 14)),
+                                      Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Card(
+                                          color: Color.fromARGB(255, 184, 235, 249),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(12),
+                                            child: !editMode
+                                                ? Text(image.type)
+                                                : StatefulBuilder(builder:
+                                                    (context, dropDownState) {
+                                                    return DropdownButton<String>(
+                                                      value: _sidebarImageLabel,
+                                                      isExpanded: true,
+                                                      items: imageTypes
+                                                          .map((String type) =>
+                                                              DropdownMenuItem(
+                                                                  value: type,
+                                                                  child: Text(type)))
+                                                          .toList(),
+                                                      onChanged: (String? newValue) {
+                                                        dropDownState(() =>
+                                                            _sidebarImageLabel =
+                                                                newValue!);
+                                                      },
+                                                    );
+                                                  }),
+                                          ),
+                                        ),
+                                      ),
+
+                                      SizedBox(height: 12),
+
+                                      Text("Name",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w800, fontSize: 14)),
+                                      Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Card(
+                                          color: Color.fromARGB(255, 184, 235, 249),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(12),
+                                            child: editMode
+                                                ? TextField(
+                                                    controller: _sidebarImageName,
+                                                  )
+                                                : Text(image.name),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                SizedBox(height: 30),
+
+                                // ===========================================================
+                                // ===================== BUTTONS =============================
+                                // ===========================================================
+
+                                if (editMode)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      FilledButton.icon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor:
+                                              Color.fromARGB(255, 135, 209, 230),
+                                        ),
+                                        icon: Icon(Icons.highlight_off_rounded, size: 18),
+                                        label: Text("Cancel"),
+                                        onPressed: () => isImage
+                                            ? openSidebar(null, image)
+                                            : openSidebar(marker, null),
+                                      ),
+                                      SizedBox(width: 10),
+                                      FilledButton.icon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor:
+                                              Color.fromARGB(255, 35, 97, 146),
+                                        ),
+                                        icon: Icon(Icons.check_circle_rounded, size: 18),
+                                        label: Text("Save"),
+                                        onPressed: isImage
+                                            ? () => updateImageSelection(image,
+                                                _sidebarImageLabel, _sidebarImageName.text)
+                                            : () => updateTextSelection(
+                                                marker!,
+                                                _sidebarText.text,
+                                                _sidebarLabel,
+                                                _sidebarLang),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  Center(
+                                    child: FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor:
+                                            Color.fromARGB(255, 35, 97, 146),
+                                      ),
+                                      icon: Icon(Icons.border_color_rounded, size: 18),
+                                      label: Text("Edit"),
+                                      onPressed: () =>
+                                          _sidebarEdit.value = !_sidebarEdit.value,
+                                    ),
+                                  ),
+
+                                SizedBox(height: 8),
+
+                                Center(
+                                  child: FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: Colors.red.shade400,
+                                    ),
+                                    icon: Icon(Icons.delete, size: 18),
+                                    label: Text("Delete Selection"),
+                                    onPressed: deleteSelection,
+                                  ),
                                 ),
-                              ),
-                              
-                              Spacer(),
-                            ],
+
+                                SizedBox(height: 20),
+                              ],
+                            ),
                           );
-                        }
-                      )
-                    )
+                        },
+                      ),
+                    ),
                   )
-                    : SizedBox.shrink();
+                : SizedBox.shrink();
                 }
               );
             }
