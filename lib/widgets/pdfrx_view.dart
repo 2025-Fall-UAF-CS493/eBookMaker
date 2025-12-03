@@ -12,7 +12,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:image/image.dart' as img;
-import 'package:customizable_dropdown_menu/customizable_dropdown_menu.dart';
 
 // Dropdown Options
 const List<String> TEIlabels = ['Title', 'Caption', 'Paragraph', 'Author'];
@@ -61,7 +60,7 @@ class _PDFState extends State<PDF> {
   final TextEditingController _sidebarText = TextEditingController(text: "");
   
   final _imageSelect = ValueNotifier<ImageAnnotation?>(null);
-  final TextEditingController _sidebarImageLabel = TextEditingController(text: "");
+  String _sidebarImageLabel = "";
   final TextEditingController _sidebarImageName = TextEditingController(text: "");
 
 
@@ -119,7 +118,7 @@ class _PDFState extends State<PDF> {
 
     } else if (img != null) {
       _imageSelect.value = img;
-      _sidebarImageLabel.text = img.type;
+      _sidebarImageLabel = img.type;
       _sidebarImageName.text = img.name;
     }
   }
@@ -131,7 +130,7 @@ class _PDFState extends State<PDF> {
     _sidebarText.text = "";
     _markerSelect.value = null;
 
-    _sidebarImageLabel.text = "";
+    _sidebarImageLabel = "";
     _sidebarImageName.text = "";
     _imageSelect.value = null;
 
@@ -360,42 +359,43 @@ class _PDFState extends State<PDF> {
                                     )
                                   ),
                                 ],
-                              ),
-                            )
-                            :
-                            // Image Display
-                            Expanded(
-                              flex: 4,
-                              child: Column (
-                                children: [
-                                  Text("Label"),
-                                  Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Card(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(10.0),
-                                        child: !editMode
-                                        ?
-                                        Text(image.type)
-                                        :
-                                        StatefulBuilder(
-                                          builder: (context, dropDownState) {
-                                          return CustomizableDropDown(
-                                              textController: _sidebarImageLabel,
-                                              multiselect: false,
-                                              selectedItems: [],
-                                              items: imageTypes,
-                                              onSelectionChange: (selectedItems) {
-                                                dropDownState(() => _sidebarImageLabel.text = selectedItems[0]);
-                                              },
-                                            );
-                                          }
-                                        )
-                                      ),
-                                    )
-                                  ),
-                              
-                                  Spacer(),
+                              )
+                              :
+                              // Image Display
+                              Expanded(
+                                flex: 8,
+                                child: Column(
+                                  children: [
+                                    Text("Label", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                                    Padding(
+                                      padding: const EdgeInsets.all(6),
+                                      child: Card(
+                                        color: Color.fromARGB(255, 184, 235, 249),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: !editMode
+                                          ?
+                                          Text(image.type)
+                                          :
+                                          StatefulBuilder(
+                                            builder: (context, dropDownState) {
+                                              return DropdownButton<String>(
+                                                value: _sidebarImageLabel,
+                                                isExpanded: true,
+                                                items: imageTypes.map((String label) {
+                                                  return DropdownMenuItem(value: label, child: Text(label));
+                                                }).toList(),
+                                                onChanged: (String? newValue) {
+                                                  dropDownState(() => _sidebarImageLabel = newValue!);
+                                                },
+                                              );
+                                            }
+                                          )
+                                        ),
+                                      )
+                                    ),
+
+                                    SizedBox(height: 12),
 
                                     Text("Name", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
                                     Padding(
@@ -773,8 +773,8 @@ class _PDFState extends State<PDF> {
 
   // Text label information
   void _showTextLabelDialog(TextSelection selection) {
-    TextEditingController dropdownLabel = TextEditingController(text: 'Title');
-    TextEditingController dropdownLanguage = TextEditingController(text: 'English');
+    String dropdownLabel = 'Title';
+    String dropdownLanguage = 'English';
 
     _clearOverlays();
 
@@ -788,25 +788,27 @@ class _PDFState extends State<PDF> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Category:'),
-                  CustomizableDropDown(
-                    textController: dropdownLabel,
-                    items: TEIlabels,
-                    multiselect: false,
-                    selectedItems: [],
-                    onSelectionChange: (newValue) {
-                      setStateDialog(() => dropdownLabel.text = newValue[0]);
+                  const Text('Category:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    value: dropdownLabel,
+                    isExpanded: true,
+                    items: TEIlabels.map((String label) {
+                      return DropdownMenuItem(value: label, child: Text(label));
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setStateDialog(() => dropdownLabel = newValue!);
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text('Language:'),
-                  CustomizableDropDown(
-                    textController: dropdownLanguage,
-                    multiselect: false,
-                    selectedItems: [],
-                    items: TEIlanguages,
-                    onSelectionChange: (newValue) {
-                      setStateDialog(() => dropdownLanguage.text = newValue[0]);
+                  const Text('Language:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    value: dropdownLanguage,
+                    isExpanded: true,
+                    items: TEIlanguages.map((String language) {
+                      return DropdownMenuItem(value: language, child: Text(language));
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setStateDialog(() => dropdownLanguage = newValue!);
                     },
                   ),
                 ],
@@ -815,7 +817,7 @@ class _PDFState extends State<PDF> {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _finalizeTextSelection(selection, dropdownLabel.text, dropdownLanguage.text);
+                    _finalizeTextSelection(selection, dropdownLabel, dropdownLanguage);
                   },
                   child: const Text('OK'),
                 ),
@@ -829,7 +831,7 @@ class _PDFState extends State<PDF> {
   
   // Image label information 
   void _showImageLabelDialog() {
-    TextEditingController selectedImageType = TextEditingController(text: 'Figure');
+    String selectedImageType = 'Figure';
     String imageLabel = 'Image ${_imageAnnotations.length + 1}';
 
     _clearOverlays();
@@ -844,14 +846,15 @@ class _PDFState extends State<PDF> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Image Type:'),
-                  CustomizableDropDown(
-                    textController: selectedImageType,
-                    selectedItems: [],
-                    multiselect: false,
-                    items: imageTypes,
-                    onSelectionChange: (newValue) {
-                      setStateDialog(() => selectedImageType.text = newValue[0]);
+                  const Text('Image Type:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    value: selectedImageType,
+                    isExpanded: true,
+                    items: imageTypes.map((String type) {
+                      return DropdownMenuItem(value: type, child: Text(type));
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setStateDialog(() => selectedImageType = newValue!);
                     },
                   ),
                   const SizedBox(height: 16),
@@ -863,7 +866,7 @@ class _PDFState extends State<PDF> {
                     ),
                     onChanged: (value) {
                       setStateDialog(() {
-                        imageLabel = value.isNotEmpty ? value : selectedImageType.text;
+                        imageLabel = value.isNotEmpty ? value : selectedImageType;
                       });
                     },
                   ),
@@ -880,7 +883,7 @@ class _PDFState extends State<PDF> {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _finalizeImage(selectedImageType.text, imageLabel);
+                    _finalizeImage(selectedImageType, imageLabel);
                   },
                   child: const Text('Save Image'),
                 ),
