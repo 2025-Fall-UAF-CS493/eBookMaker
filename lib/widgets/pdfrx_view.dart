@@ -1159,6 +1159,14 @@ class _PDFState extends State<PDF> {
 
   // Creates the file of data to export as XML
   Future<void> exportPairedToText() async {
+
+    // Combine TextSelections and ImageAnnotations into one list
+    List<PageItem> x = _selections.values.toList();
+    List<PageItem> pageItems = x + _imageAnnotations;
+
+    // Sort the list
+    pageItems.sort(pageSort);
+
     final xml = StringBuffer();
     xml.writeln('<?xml version="1.0" encoding="UTF-8"?>');
     xml.writeln('<pdfExtractions>');
@@ -1221,9 +1229,44 @@ class _PDFState extends State<PDF> {
 }
 
 // Text, Markers & Images classes
-class TextSelection {
+
+abstract class PageItem {
+  PdfRect get bounds;
+  int get pageNumber;
+}
+
+// Sorting comparator for PageItems
+int pageSort(PageItem a, PageItem b) {
+  // Compare page number
+  if (a.pageNumber < b.pageNumber) {
+    return -1;
+  } else if (a.pageNumber > b.pageNumber) {
+    return 1;
+  // If same page, compare bounds
+  } else {
+    // Compare bounds top
+    if (a.bounds.top < b.bounds.top) {
+      return -1;
+    } else if (a.bounds.top > b.bounds.top) {
+      return 1;
+    // Compare bounds left
+    } else {
+      if (a.bounds.left < b.bounds.left) {
+        return -1;
+      } else if (a.bounds.left > b.bounds.left) {
+        return 1;
+      } else {
+        return 0;
+      }
+    }
+  }
+}
+
+class TextSelection implements PageItem {
   String text;
+  @override
   final PdfRect bounds;
+  @override
   final int pageNumber;
   final Rect globalRect;
   String label;
@@ -1277,10 +1320,12 @@ class PdfMarker {
   });
 }
 
-class ImageAnnotation {
+class ImageAnnotation implements PageItem {
   final Uint8List imageBytes;
   final String fileName;
+  @override
   final PdfRect bounds;
+  @override
   final int pageNumber;
   String type;
   String name;
