@@ -14,22 +14,16 @@ import 'package:file_selector/file_selector.dart' as fs;
 import 'package:image/image.dart' as img;
 
 // Dropdown Options
-const List<String> TEIlanguages = ['English', 'Not English', 'Other'];
+const List<String> TEIlanguages = ['English', 'Akuzupik', 'Other'];
+const Map<String, String> langCodes = { "English": "eng-us", "Akuzipik": "ess-us"};
 
-// Assigning colors 
+// Assigning colors
 final Map<String, Color> TEIlabels = {
   'Title': Color.fromARGB(255, 0, 0, 255),       // Blue
-  'Caption': Color.fromARGB(255, 0, 128, 0),     // Green
+  'Subtitle': Color.fromARGB(255, 2, 175, 206),  // Light Blue
+  'Header': Color.fromARGB(255, 0, 128, 0),     // Green
   'Paragraph': Color.fromARGB(255, 255, 165, 0), // Orange
   'Author': Color.fromARGB(255, 128, 0, 128),    // Purple
-};
-
-final Map<String, Color> imageTypes = {
-  'Figure': Color.fromARGB(255, 0, 255, 255),    // Cyan
-  'Diagram': Color.fromARGB(255, 75, 0, 130),    // Indigo
-  'Photo': Color.fromARGB(255, 0, 128, 128),     // Teal
-  'Drawing': Color.fromARGB(255, 165, 42, 42),   // Brown
-  'Other': Color.fromARGB(255, 0, 0, 0),         // Black
 };
 
 class PDF extends StatefulWidget {
@@ -74,7 +68,6 @@ class _PDFState extends State<PDF> {
   final TextEditingController _sidebarText = TextEditingController(text: "");
   
   final _imageSelect = ValueNotifier<ImageAnnotation?>(null);
-  String _sidebarImageLabel = "";
   final TextEditingController _sidebarImageName = TextEditingController(text: "");
 
 
@@ -132,7 +125,6 @@ class _PDFState extends State<PDF> {
 
     } else if (img != null) {
       _imageSelect.value = img;
-      _sidebarImageLabel = img.type;
       _sidebarImageName.text = img.name;
     }
   }
@@ -144,7 +136,6 @@ class _PDFState extends State<PDF> {
     _sidebarText.text = "";
     _markerSelect.value = null;
 
-    _sidebarImageLabel = "";
     _sidebarImageName.text = "";
     _imageSelect.value = null;
 
@@ -393,41 +384,6 @@ class _PDFState extends State<PDF> {
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      Text("Label",
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w800, fontSize: 14)),
-                                      Padding(
-                                        padding: const EdgeInsets.all(6),
-                                        child: Card(
-                                          color: Color.fromARGB(255, 184, 235, 249),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(12),
-                                            child: !editMode
-                                                ? Text(image.type)
-                                                : StatefulBuilder(builder:
-                                                    (context, dropDownState) {
-                                                    return DropdownButton<String>(
-                                                      value: _sidebarImageLabel,
-                                                      isExpanded: true,
-                                                      items: imageTypes.keys
-                                                          .map((String type) =>
-                                                              DropdownMenuItem(
-                                                                  value: type,
-                                                                  child: Text(type)))
-                                                          .toList(),
-                                                      onChanged: (String? newValue) {
-                                                        dropDownState(() =>
-                                                            _sidebarImageLabel =
-                                                                newValue!);
-                                                      },
-                                                    );
-                                                  }),
-                                          ),
-                                        ),
-                                      ),
-
-                                      SizedBox(height: 12),
-
                                       Text("Name",
                                           style: TextStyle(
                                               fontWeight: FontWeight.w800, fontSize: 14)),
@@ -478,8 +434,7 @@ class _PDFState extends State<PDF> {
                                         icon: Icon(Icons.check_circle_rounded, size: 18),
                                         label: Text("Save"),
                                         onPressed: isImage
-                                            ? () => updateImageSelection(image,
-                                                _sidebarImageLabel, _sidebarImageName.text)
+                                            ? () => updateImageSelection(image, _sidebarImageName.text)
                                             : () => updateTextSelection(
                                                 marker!,
                                                 _sidebarText.text,
@@ -612,9 +567,8 @@ class _PDFState extends State<PDF> {
   }
 
   // Update an ImageAnnotation from the sidebar
-  void updateImageSelection(ImageAnnotation img, String label, String name) {
+  void updateImageSelection(ImageAnnotation img, String name) {
     ImageAnnotation i = _imageAnnotations.firstWhere((i) => i == img);
-    i.type = label;
     i.name = name;
 
     closeSidebar();
@@ -885,18 +839,6 @@ class _PDFState extends State<PDF> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Image Type:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  DropdownButton<String>(
-                    value: selectedImageType,
-                    isExpanded: true,
-                    items: imageTypes.keys.map((String type) {
-                      return DropdownMenuItem(value: type, child: Text(type));
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setStateDialog(() => selectedImageType = newValue!);
-                    },
-                  ),
-                  const SizedBox(height: 16),
                   const Text('Custom Label:', style: TextStyle(fontWeight: FontWeight.bold)),
                   TextField(
                     decoration: const InputDecoration(
@@ -1039,7 +981,7 @@ class _PDFState extends State<PDF> {
     final pixels = _pendingImageData!['pixels'] as Uint8List;
     final pdfRect = _pendingImageData!['pdfRect'] as PdfRect;
     final pageNumber = _pendingImageData!['pageNumber'] as int;
-    final color = imageTypes[imageType] ?? Color.fromARGB(255, 135, 209, 230);
+    final color = Color.fromARGB(255, 135, 209, 230);
     
     final timestamp = DateTime.now();
     final fileName = '${imageType.toLowerCase()}_page${pageNumber}_${label}_$timestamp.png';
@@ -1051,7 +993,6 @@ class _PDFState extends State<PDF> {
       fileName: fileName,
       bounds: pdfRect,
       pageNumber: pageNumber,
-      type: imageType,
       name: label,
       color: color,
     ));
@@ -1101,7 +1042,7 @@ class _PDFState extends State<PDF> {
       canvas.drawRect(documentRect, paint);
       
       final paragraph = _buildParagraph(
-        '${imageAnnotation.type}: ${imageAnnotation.name}', 
+        imageAnnotation.name, 
         documentRect.width, 
         fontSize: 10, 
         color: const ui.Color.fromARGB(255, 0, 0, 0)
@@ -1159,43 +1100,64 @@ class _PDFState extends State<PDF> {
 
   // Creates the file of data to export as XML
   Future<void> exportPairedToText() async {
+
+    // Combine TextSelections and ImageAnnotations into one list
+    List<PageItem> pageItems = [..._selections.values,..._imageAnnotations];
+
+    // Sort the list into pages
+    pageItems.sort(pageSort);
+    final Map<int, List<PageItem>> pages = {};
+    for (var item in pageItems) {
+      int num = item.pageNumber;
+      pages.update(num, (value) => value + [item], ifAbsent: () => [item]);
+    }
+
+    // Create XML file
     final xml = StringBuffer();
     xml.writeln('<?xml version="1.0" encoding="UTF-8"?>');
-    xml.writeln('<pdfExtractions>');
 
-    xml.writeln('  <textExtractions>');
-    int i = 1;
-    for (TextSelection s in _selections.values) {
-      xml.writeln('    <textExtraction index="$i">');
-      xml.writeln('      <label>${_escapeXml(s.label)}</label>');
-      xml.writeln('      <language>${_escapeXml(s.language)}</language>');
-      xml.writeln('      <page>${s.pageNumber}</page>');
-      xml.writeln('      <text>${_escapeXml(s.text)}</text>');
-      xml.writeln(
-        '      <bounds left="${s.bounds.left}" top="${s.bounds.top}" right="${s.bounds.right}" bottom="${s.bounds.bottom}" />'
-      );
-      xml.writeln('    </textExtraction>');
-      i++;
+    xml.writeln('<text>');
+    xml.writeln(' <body>');
+
+    for (var page in pages.entries) {
+
+      // Page breaks and divs
+      xml.writeln('   <pb n="${page.key}"/>');
+      xml.writeln('   <div type = "page" n="${page.key}">');
+
+      // Page Elements
+      for(var item in page.value) {
+
+        // Images
+        if (item is ImageAnnotation) {
+          xml.writeln('     <graphic url="${item.fileName}"/>');
+
+        // Text Elements
+        } else if (item is TextSelection) {
+
+          if (item.label == "Title") {
+            xml.writeln('     <title type="main" xml:lang="${langCodes[item.language]}">${item.text}</title>');
+
+          } else if (item.label == "Subtitle") {
+            xml.writeln('     <title type="sub" xml:lang="${langCodes[item.language]}">${item.text}</title>');
+
+          } else if (item.label == "Header") {
+            xml.writeln('     <head xml:lang="${langCodes[item.language]}">${item.text}</head>');
+            
+          } else if (item.label == "Paragraph") {
+            xml.writeln('     <p xml:lang="${langCodes[item.language]}">');
+            xml.writeln('       ${item.text}');
+            xml.writeln('     </p>');
+            
+          } else if (item.label == "Author") {
+            xml.writeln('     <author xml:lang="${langCodes[item.language]}" role="bookAuthor">${item.text}</author>');
+          }
+        }
+      }
+      xml.writeln('   </div>');
     }
-    xml.writeln('  </textExtractions>');
-
-    xml.writeln('  <imageExtractions>');
-    for (int j = 0; j < _imageAnnotations.length; j++) {
-      final img = _imageAnnotations[j];
-      xml.writeln('    <imageExtraction index="${j + 1}">');
-      xml.writeln('      <file>${_escapeXml(img.fileName)}</file>');
-      xml.writeln('      <type>${_escapeXml(img.type)}</type>');
-      xml.writeln('      <name>${_escapeXml(img.name)}</name>');
-      xml.writeln('      <page>${img.pageNumber}</page>');
-      xml.writeln(
-        '      <bounds left="${img.bounds.left}" top="${img.bounds.top}" right="${img.bounds.right}" bottom="${img.bounds.bottom}" />'
-      );
-      xml.writeln('      <sizeBytes>${img.imageBytes.length}</sizeBytes>');
-      xml.writeln('    </imageExtraction>');
-    }
-    xml.writeln('  </imageExtractions>');
-
-    xml.writeln('</pdfExtractions>');
+    xml.writeln(' </body>');
+    xml.writeln('</text>');
 
     await _saveTextToFile(xml.toString());
   }
@@ -1221,9 +1183,44 @@ class _PDFState extends State<PDF> {
 }
 
 // Text, Markers & Images classes
-class TextSelection {
+
+abstract class PageItem {
+  PdfRect get bounds;
+  int get pageNumber;
+}
+
+// Sorting comparator for PageItems
+int pageSort(PageItem a, PageItem b) {
+  // Compare page number
+  if (a.pageNumber < b.pageNumber) {
+    return -1;
+  } else if (a.pageNumber > b.pageNumber) {
+    return 1;
+  // If same page, compare bounds
+  } else {
+    // Compare bounds top
+    if (a.bounds.top < b.bounds.top) {
+      return -1;
+    } else if (a.bounds.top > b.bounds.top) {
+      return 1;
+    // Compare bounds left
+    } else {
+      if (a.bounds.left < b.bounds.left) {
+        return -1;
+      } else if (a.bounds.left > b.bounds.left) {
+        return 1;
+      } else {
+        return 0;
+      }
+    }
+  }
+}
+
+class TextSelection implements PageItem {
   String text;
+  @override
   final PdfRect bounds;
+  @override
   final int pageNumber;
   final Rect globalRect;
   String label;
@@ -1277,12 +1274,13 @@ class PdfMarker {
   });
 }
 
-class ImageAnnotation {
+class ImageAnnotation implements PageItem {
   final Uint8List imageBytes;
   final String fileName;
+  @override
   final PdfRect bounds;
+  @override
   final int pageNumber;
-  String type;
   String name;
   Color color;
 
@@ -1291,7 +1289,6 @@ class ImageAnnotation {
     required this.fileName,
     required this.bounds,
     required this.pageNumber,
-    required this.type,
     required this.name,
     required this.color,
   });
