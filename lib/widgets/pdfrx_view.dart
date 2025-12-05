@@ -19,10 +19,10 @@ const Map<String, String> langCodes = { "English": "eng-us", "Akuzipik": "ess-us
 
 // Assigning colors
 final Map<String, Color> TEIlabels = {
-  'Title': Color.fromARGB(255, 0, 0, 255),       // Blue
-  'Subtitle': Color.fromARGB(255, 2, 175, 206),  // Light Blue
-  'Header': Color.fromARGB(255, 0, 128, 0),     // Green
-  'Paragraph': Color.fromARGB(255, 255, 165, 0), // Orange
+  'Title': ui.Color.fromARGB(255, 230, 154, 23),       // Blue
+  'Subtitle': ui.Color.fromARGB(255, 199, 206, 2),  // Light Blue
+  'Header': ui.Color.fromARGB(255, 16, 157, 16),     // Green
+  'Paragraph': ui.Color.fromARGB(255, 0, 162, 255), // Orange
   'Author': Color.fromARGB(255, 128, 0, 128),    // Purple
 };
 
