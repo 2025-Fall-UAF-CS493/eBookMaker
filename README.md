@@ -165,15 +165,12 @@ Generates structured XML containing all text and image annotations and saves it 
 #### List of Current Labels/Tags
 | Label / Type    | Category | Corresponding XML Tag | Color                 |
 |-----------------|----------|---------------------|----------------------|
-| Title           | Text     | `<textExtraction><label>Title</label></textExtraction>` | Blue (#0000FF)       |
-| Caption         | Text     | `<textExtraction><label>Caption</label></textExtraction>` | Green (#008000)      |
-| Paragraph       | Text     | `<textExtraction><label>Paragraph</label></textExtraction>` | Orange (#FFA500)     |
-| Author          | Text     | `<textExtraction><label>Author</label></textExtraction>` | Purple (#800080)     |
-| Figure          | Image    | `<imageExtraction><type>Figure</type></imageExtraction>` | Cyan (#00FFFF)       |
-| Diagram         | Image    | `<imageExtraction><type>Diagram</type></imageExtraction>` | Indigo (#4B0082)     |
-| Photo           | Image    | `<imageExtraction><type>Photo</type></imageExtraction>` | Teal (#008080)       |
-| Drawing         | Image    | `<imageExtraction><type>Drawing</type></imageExtraction>` | Brown (#A52A2A)      |
-| Other           | Image    | `<imageExtraction><type>Other</type></imageExtraction>` | Black (#000000)      |
+| Title           | Text     | `<title type="main"></title>`         | Blue (#0000FF)       |
+| Subtitle        | Text     | `<title type="sub"></title>`          | Green (#008000)      |
+| Header          | Text     | `<head></head>`                       | Orange (#FFA500)     |
+| Author          | Text     | `<author role="bookAuthor"></author>` | Purple (#800080)     |
+| Paragraph       | Text     | `<p></p>`                             | Cyan (#00FFFF)       |
+| Image           | Image    | `<graphic url=""></graphic>`          | Indigo (#4B0082)     |
 
 
 ## Libraries:
