@@ -16,21 +16,13 @@ import 'package:image/image.dart' as img;
 // Dropdown Options
 const List<String> TEIlanguages = ['English', 'Akuzupik', 'Other'];
 
-// Assigning colors 
+// Assigning colors
 final Map<String, Color> TEIlabels = {
   'Title': Color.fromARGB(255, 0, 0, 255),       // Blue
   'Subtitle': Color.fromARGB(255, 2, 175, 206),  // Light Blue
-  'Caption': Color.fromARGB(255, 0, 128, 0),     // Green
+  'Header': Color.fromARGB(255, 0, 128, 0),     // Green
   'Paragraph': Color.fromARGB(255, 255, 165, 0), // Orange
   'Author': Color.fromARGB(255, 128, 0, 128),    // Purple
-};
-
-final Map<String, Color> imageTypes = {
-  'Figure': Color.fromARGB(255, 0, 255, 255),    // Cyan
-  'Diagram': Color.fromARGB(255, 75, 0, 130),    // Indigo
-  'Photo': Color.fromARGB(255, 0, 128, 128),     // Teal
-  'Drawing': Color.fromARGB(255, 165, 42, 42),   // Brown
-  'Other': Color.fromARGB(255, 0, 0, 0),         // Black
 };
 
 class PDF extends StatefulWidget {
@@ -75,7 +67,6 @@ class _PDFState extends State<PDF> {
   final TextEditingController _sidebarText = TextEditingController(text: "");
   
   final _imageSelect = ValueNotifier<ImageAnnotation?>(null);
-  String _sidebarImageLabel = "";
   final TextEditingController _sidebarImageName = TextEditingController(text: "");
 
 
@@ -133,7 +124,6 @@ class _PDFState extends State<PDF> {
 
     } else if (img != null) {
       _imageSelect.value = img;
-      _sidebarImageLabel = img.type;
       _sidebarImageName.text = img.name;
     }
   }
@@ -145,7 +135,6 @@ class _PDFState extends State<PDF> {
     _sidebarText.text = "";
     _markerSelect.value = null;
 
-    _sidebarImageLabel = "";
     _sidebarImageName.text = "";
     _imageSelect.value = null;
 
@@ -394,41 +383,6 @@ class _PDFState extends State<PDF> {
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      Text("Label",
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w800, fontSize: 14)),
-                                      Padding(
-                                        padding: const EdgeInsets.all(6),
-                                        child: Card(
-                                          color: Color.fromARGB(255, 184, 235, 249),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(12),
-                                            child: !editMode
-                                                ? Text(image.type)
-                                                : StatefulBuilder(builder:
-                                                    (context, dropDownState) {
-                                                    return DropdownButton<String>(
-                                                      value: _sidebarImageLabel,
-                                                      isExpanded: true,
-                                                      items: imageTypes.keys
-                                                          .map((String type) =>
-                                                              DropdownMenuItem(
-                                                                  value: type,
-                                                                  child: Text(type)))
-                                                          .toList(),
-                                                      onChanged: (String? newValue) {
-                                                        dropDownState(() =>
-                                                            _sidebarImageLabel =
-                                                                newValue!);
-                                                      },
-                                                    );
-                                                  }),
-                                          ),
-                                        ),
-                                      ),
-
-                                      SizedBox(height: 12),
-
                                       Text("Name",
                                           style: TextStyle(
                                               fontWeight: FontWeight.w800, fontSize: 14)),
@@ -479,8 +433,7 @@ class _PDFState extends State<PDF> {
                                         icon: Icon(Icons.check_circle_rounded, size: 18),
                                         label: Text("Save"),
                                         onPressed: isImage
-                                            ? () => updateImageSelection(image,
-                                                _sidebarImageLabel, _sidebarImageName.text)
+                                            ? () => updateImageSelection(image, _sidebarImageName.text)
                                             : () => updateTextSelection(
                                                 marker!,
                                                 _sidebarText.text,
@@ -613,9 +566,8 @@ class _PDFState extends State<PDF> {
   }
 
   // Update an ImageAnnotation from the sidebar
-  void updateImageSelection(ImageAnnotation img, String label, String name) {
+  void updateImageSelection(ImageAnnotation img, String name) {
     ImageAnnotation i = _imageAnnotations.firstWhere((i) => i == img);
-    i.type = label;
     i.name = name;
 
     closeSidebar();
@@ -886,18 +838,6 @@ class _PDFState extends State<PDF> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Image Type:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  DropdownButton<String>(
-                    value: selectedImageType,
-                    isExpanded: true,
-                    items: imageTypes.keys.map((String type) {
-                      return DropdownMenuItem(value: type, child: Text(type));
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setStateDialog(() => selectedImageType = newValue!);
-                    },
-                  ),
-                  const SizedBox(height: 16),
                   const Text('Custom Label:', style: TextStyle(fontWeight: FontWeight.bold)),
                   TextField(
                     decoration: const InputDecoration(
@@ -1040,7 +980,7 @@ class _PDFState extends State<PDF> {
     final pixels = _pendingImageData!['pixels'] as Uint8List;
     final pdfRect = _pendingImageData!['pdfRect'] as PdfRect;
     final pageNumber = _pendingImageData!['pageNumber'] as int;
-    final color = imageTypes[imageType] ?? Color.fromARGB(255, 135, 209, 230);
+    final color = Color.fromARGB(255, 135, 209, 230);
     
     final timestamp = DateTime.now();
     final fileName = '${imageType.toLowerCase()}_page${pageNumber}_${label}_$timestamp.png';
@@ -1052,7 +992,6 @@ class _PDFState extends State<PDF> {
       fileName: fileName,
       bounds: pdfRect,
       pageNumber: pageNumber,
-      type: imageType,
       name: label,
       color: color,
     ));
@@ -1102,7 +1041,7 @@ class _PDFState extends State<PDF> {
       canvas.drawRect(documentRect, paint);
       
       final paragraph = _buildParagraph(
-        '${imageAnnotation.type}: ${imageAnnotation.name}', 
+        imageAnnotation.name, 
         documentRect.width, 
         fontSize: 10, 
         color: const ui.Color.fromARGB(255, 0, 0, 0)
@@ -1354,7 +1293,6 @@ class ImageAnnotation implements PageItem {
   final PdfRect bounds;
   @override
   final int pageNumber;
-  String type;
   String name;
   Color color;
 
@@ -1363,7 +1301,6 @@ class ImageAnnotation implements PageItem {
     required this.fileName,
     required this.bounds,
     required this.pageNumber,
-    required this.type,
     required this.name,
     required this.color,
   });
