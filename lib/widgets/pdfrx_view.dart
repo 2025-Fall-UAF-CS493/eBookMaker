@@ -15,6 +15,7 @@ import 'package:image/image.dart' as img;
 
 // Dropdown Options
 const List<String> TEIlanguages = ['English', 'Akuzupik', 'Other'];
+const Map<String, String> langCodes = { "English": "eng-us", "Akuzipik": "ess-us"};
 
 // Assigning colors
 final Map<String, Color> TEIlabels = {
@@ -1101,8 +1102,7 @@ class _PDFState extends State<PDF> {
   Future<void> exportPairedToText() async {
 
     // Combine TextSelections and ImageAnnotations into one list
-    List<PageItem> x = _selections.values.toList();
-    List<PageItem> pageItems = x + _imageAnnotations;
+    List<PageItem> pageItems = [..._selections.values,..._imageAnnotations];
 
     // Sort the list into pages
     pageItems.sort(pageSort);
@@ -1120,56 +1120,44 @@ class _PDFState extends State<PDF> {
     xml.writeln(' <body>');
 
     for (var page in pages.entries) {
+
+      // Page breaks and divs
       xml.writeln('   <pb n="${page.key}"/>');
       xml.writeln('   <div type = "page" n="${page.key}">');
+
+      // Page Elements
       for(var item in page.value) {
+
+        // Images
         if (item is ImageAnnotation) {
           xml.writeln('     <graphic url="${item.fileName}"/>');
-        } else {
 
+        // Text Elements
+        } else if (item is TextSelection) {
+
+          if (item.label == "Title") {
+            xml.writeln('     <title type="main" xml:lang="${langCodes[item.language]}">${item.text}</title>');
+
+          } else if (item.label == "Subtitle") {
+            xml.writeln('     <title type="sub" xml:lang="${langCodes[item.language]}">${item.text}</title>');
+
+          } else if (item.label == "Header") {
+            xml.writeln('     <head xml:lang="${langCodes[item.language]}">${item.text}</head>');
+            
+          } else if (item.label == "Paragraph") {
+            xml.writeln('     <p xml:lang="${langCodes[item.language]}">');
+            xml.writeln('       ${item.text}');
+            xml.writeln('     </p>');
+            
+          } else if (item.label == "Author") {
+            xml.writeln('     <author xml:lang="${langCodes[item.language]}" role="bookAuthor">${item.text}</author>');
+          }
         }
       }
       xml.writeln('   </div>');
     }
-
     xml.writeln(' </body>');
     xml.writeln('</text>');
-
-    // xml.writeln('<pdfExtractions>');
-
-    // xml.writeln('  <textExtractions>');
-    // int i = 1;
-    // for (TextSelection s in _selections.values) {
-    //   xml.writeln('    <textExtraction index="$i">');
-    //   xml.writeln('      <label>${_escapeXml(s.label)}</label>');
-    //   xml.writeln('      <language>${_escapeXml(s.language)}</language>');
-    //   xml.writeln('      <page>${s.pageNumber}</page>');
-    //   xml.writeln('      <text>${_escapeXml(s.text)}</text>');
-    //   xml.writeln(
-    //     '      <bounds left="${s.bounds.left}" top="${s.bounds.top}" right="${s.bounds.right}" bottom="${s.bounds.bottom}" />'
-    //   );
-    //   xml.writeln('    </textExtraction>');
-    //   i++;
-    // }
-    // xml.writeln('  </textExtractions>');
-
-    // xml.writeln('  <imageExtractions>');
-    // for (int j = 0; j < _imageAnnotations.length; j++) {
-    //   final img = _imageAnnotations[j];
-    //   xml.writeln('    <imageExtraction index="${j + 1}">');
-    //   xml.writeln('      <file>${_escapeXml(img.fileName)}</file>');
-    //   xml.writeln('      <type>${_escapeXml(img.type)}</type>');
-    //   xml.writeln('      <name>${_escapeXml(img.name)}</name>');
-    //   xml.writeln('      <page>${img.pageNumber}</page>');
-    //   xml.writeln(
-    //     '      <bounds left="${img.bounds.left}" top="${img.bounds.top}" right="${img.bounds.right}" bottom="${img.bounds.bottom}" />'
-    //   );
-    //   xml.writeln('      <sizeBytes>${img.imageBytes.length}</sizeBytes>');
-    //   xml.writeln('    </imageExtraction>');
-    // }
-    // xml.writeln('  </imageExtractions>');
-
-    // xml.writeln('</pdfExtractions>');
 
     await _saveTextToFile(xml.toString());
   }
