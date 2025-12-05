@@ -152,7 +152,7 @@ In this directory there are two files, `app.dart` and `pdfrx_view.dart`.
 ### XML File Export
 
 - Located in `pdfrx_view.dart`
-- Worked on by Jonathan Brough and Kohlby Vierthaler.
+- Worked on by Jonathan Brough, Kohlby Vierthaler, and Jenae Matson.
 
 Generates structured XML containing all text and image annotations and saves it to a user-selected location.
 
@@ -165,12 +165,12 @@ Generates structured XML containing all text and image annotations and saves it 
 #### List of Current Labels/Tags
 | Label / Type    | Category | Corresponding XML Tag | Color                 |
 |-----------------|----------|---------------------|----------------------|
-| Title           | Text     | `<title type="main"></title>`         | Blue (#0000FF)       |
-| Subtitle        | Text     | `<title type="sub"></title>`          | Green (#008000)      |
-| Header          | Text     | `<head></head>`                       | Orange (#FFA500)     |
-| Author          | Text     | `<author role="bookAuthor"></author>` | Purple (#800080)     |
-| Paragraph       | Text     | `<p></p>`                             | Cyan (#00FFFF)       |
-| Image           | Image    | `<graphic url=""></graphic>`          | Indigo (#4B0082)     |
+| Title           | Text     | `<title type="main"></title>`         | Orange  |
+| Subtitle        | Text     | `<title type="sub"></title>`          | Yellow  |
+| Header          | Text     | `<head></head>`                       | Green   |
+| Author          | Text     | `<author role="bookAuthor"></author>` | Purple  |
+| Paragraph       | Text     | `<p></p>`                             | Blue    |
+| Image           | Image    | `<graphic url=""></graphic>`          | Cyan    |
 
 
 ## Libraries:
