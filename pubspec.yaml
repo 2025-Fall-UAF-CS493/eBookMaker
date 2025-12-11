@@ -30,7 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  pdfx: ^2.9.2
   pdfrx: ^2.2.8
   file_selector: ^1.0.4
   image: ^4.0.17

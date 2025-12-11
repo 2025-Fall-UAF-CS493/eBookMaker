@@ -3,7 +3,6 @@ A number of additional features could be added by interested developers to furth
 
 # Recommendations for Future Development
 - Read pdfrx documentation (link in the README)
-- Read pdfx documentation
 - Expand TEI compliance for XML. XML is the supported data format that PDF files 
 can be exported to create readable eBooks. TEI is an XML format https://www.tei-c.org/
 - Conduct user testing of the eBookMaker software.
