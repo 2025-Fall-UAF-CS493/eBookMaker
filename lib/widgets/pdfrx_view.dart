@@ -6,12 +6,16 @@
 
 
 import 'dart:ui' as ui;
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:file_selector/file_selector.dart' as fs;
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
+import 'package:archive/archive.dart';
 
 // Dropdown Options
 const List<String> TEIlanguages = ['English', 'Akuzupik', 'Other'];
@@ -975,19 +979,24 @@ class _PDFState extends State<PDF> {
   }
 
   // Add image item 
-  void _finalizeImage(String imageType, String label) async {
+  void _finalizeImage(String imageType, String label) {
     if (_pendingImageData == null) return;
 
     final pixels = _pendingImageData!['pixels'] as Uint8List;
     final pdfRect = _pendingImageData!['pdfRect'] as PdfRect;
     final pageNumber = _pendingImageData!['pageNumber'] as int;
-    final color = Color.fromARGB(255, 135, 209, 230);
-    
-    final timestamp = DateTime.now();
-    final fileName = '${imageType.toLowerCase()}_page${pageNumber}_${label}_$timestamp.png';
-    
-    await _saveImageToFile(pixels, fileName);
-    
+    final color = const Color.fromARGB(255, 135, 209, 230);
+
+    // Build a filesystem-safe filename and keep it relative (no directory here).
+    final safeLabel = label
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final fileName = '${imageType.toLowerCase()}_page${pageNumber}_${safeLabel}_$ts.png';
+
+    // Store the image in memory; it will be written alongside the XML during export.
     _imageAnnotations.add(ImageAnnotation(
       imageBytes: pixels,
       fileName: fileName,
@@ -996,11 +1005,11 @@ class _PDFState extends State<PDF> {
       name: label,
       color: color,
     ));
-    
+
     _pendingImageData = null;
     _pendingSelectionData = null;
-    
-    _showSnackBar('$imageType saved: $label');
+
+    _showSnackBar('$imageType queued for export: $label');
     _clearOverlays();
     _safeSetState(() {});
   }
@@ -1055,31 +1064,49 @@ class _PDFState extends State<PDF> {
   // === FILE & EXPORTING ===
   // ========================
 
-  // Saves the image locally
-  Future<void> _saveImageToFile(Uint8List imageBytes, String fileName) async {
-    try {
-      final location = await fs.getSaveLocation(suggestedName: fileName);
-      if (location != null) {
-        final file = fs.XFile.fromData(imageBytes, mimeType: 'image/png', name: fileName);
-        await file.saveTo(location.path);
-        _showSnackBar('Image saved as: $fileName');
-      }
-    } catch (e) {
-      _showError('Failed to save image: $e');
-    }
-  }
+  // (image saving now handled during export)
   
-  // Saves the data .xml file to downloads
-  Future<void> _saveTextToFile(String text) async {
-    final location = await fs.getSaveLocation(suggestedName: 'pdf_annotations.xml');
-    if (location != null) {
+  // Saves the data .xml file to an explicit full path
+  Future<void> _saveTextToPath(String fullPath, String fileName, String text) async {
+    try {
       final file = fs.XFile.fromData(
         Uint8List.fromList(utf8.encode(text)),
         mimeType: 'application/xml',
-        name: 'pdf_annotations.xml',
+        name: fileName,
       );
-      await file.saveTo(location.path);
+      await file.saveTo(fullPath);
+    } catch (e) {
+      _showError('Failed to save XML: $e');
     }
+  }
+  Future<void> _exportImagesToDirectory(String directoryPath) async {
+    for (final imgAnn in _imageAnnotations) {
+      try {
+        final fullPath = directoryPath.endsWith('/')
+            ? '${directoryPath}${imgAnn.fileName}'
+            : '$directoryPath/${imgAnn.fileName}';
+        final file = fs.XFile.fromData(imgAnn.imageBytes, mimeType: 'image/png', name: imgAnn.fileName);
+        await file.saveTo(fullPath);
+      } catch (e) {
+        _showError('Failed to save image ${imgAnn.fileName}: $e');
+      }
+    }
+  }
+
+  Future<void> _exportAllToXmlPath(String xmlFullPath, String xmlText) async {
+    final parentDir = p.dirname(xmlFullPath);
+    final baseName = p.basenameWithoutExtension(xmlFullPath);
+    final exportDir = p.join(parentDir, baseName);
+
+    // Create export directory if it doesn't exist
+    await Directory(exportDir).create(recursive: true);
+
+    final xmlPath = p.join(exportDir, 'pdf_annotations.xml');
+
+    await _saveTextToPath(xmlPath, 'pdf_annotations.xml', xmlText);
+    await _exportImagesToDirectory(exportDir);
+
+    _showSnackBar('Exported XML + ${_imageAnnotations.length} image(s) to folder: $exportDir');
   }
 
   String _escapeXml(String input) {
@@ -1091,18 +1118,52 @@ class _PDFState extends State<PDF> {
         .replaceAll("'", '&apos;');
   }
 
-  void _handleExportTrigger() {
+  Future<void> _handleExportTrigger() async {
     if (widget.exportTrigger?.value == true) {
-      exportPairedToText();
       widget.exportTrigger?.value = false;
+      await exportZipped();
     }
   }
 
+  String _buildExportXml(Map<int, List<PageItem>> pages) {
+    final xml = StringBuffer();
+    xml.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    xml.writeln('<text>');
+    xml.writeln(' <body>');
+
+    for (var page in pages.entries) {
+      xml.writeln('   <pb n="${page.key}"/>');
+      xml.writeln('   <div type = "page" n="${page.key}">');
+
+      for (var item in page.value) {
+        if (item is ImageAnnotation) {
+          xml.writeln('     <graphic url="${_escapeXml(item.fileName)}"/>');
+        } else if (item is TextSelection) {
+          if (item.label == "Title") {
+            xml.writeln('     <title type="main" xml:lang="${langCodes[item.language]}">${_escapeXml(item.text)}</title>');
+          } else if (item.label == "Subtitle") {
+            xml.writeln('     <title type="sub" xml:lang="${langCodes[item.language]}">${_escapeXml(item.text)}</title>');
+          } else if (item.label == "Header") {
+            xml.writeln('     <head xml:lang="${langCodes[item.language]}">${_escapeXml(item.text)}</head>');
+          } else if (item.label == "Paragraph") {
+            xml.writeln('     <p xml:lang="${langCodes[item.language]}">${_escapeXml(item.text)}</p>');
+          } else if (item.label == "Author") {
+            xml.writeln('     <author xml:lang="${langCodes[item.language]}" role="bookAuthor">${_escapeXml(item.text)}</author>');
+          }
+        }
+      }
+
+      xml.writeln('   </div>');
+    }
+
+    xml.writeln(' </body>');
+    xml.writeln('</text>');
+    return xml.toString();
+  }
   // Creates the file of data to export as XML
   Future<void> exportPairedToText() async {
-
     // Combine TextSelections and ImageAnnotations into one list
-    List<PageItem> pageItems = [..._selections.values,..._imageAnnotations];
+    List<PageItem> pageItems = [..._selections.values, ..._imageAnnotations];
 
     // Sort the list into pages
     pageItems.sort(pageSort);
@@ -1112,54 +1173,71 @@ class _PDFState extends State<PDF> {
       pages.update(num, (value) => value + [item], ifAbsent: () => [item]);
     }
 
-    // Create XML file
-    final xml = StringBuffer();
-    xml.writeln('<?xml version="1.0" encoding="UTF-8"?>');
+    final xmlText = _buildExportXml(pages);
 
-    xml.writeln('<text>');
-    xml.writeln(' <body>');
-
-    for (var page in pages.entries) {
-
-      // Page breaks and divs
-      xml.writeln('   <pb n="${page.key}"/>');
-      xml.writeln('   <div type = "page" n="${page.key}">');
-
-      // Page Elements
-      for(var item in page.value) {
-
-        // Images
-        if (item is ImageAnnotation) {
-          xml.writeln('     <graphic url="${item.fileName}"/>');
-
-        // Text Elements
-        } else if (item is TextSelection) {
-
-          if (item.label == "Title") {
-            xml.writeln('     <title type="main" xml:lang="${langCodes[item.language]}">${item.text}</title>');
-
-          } else if (item.label == "Subtitle") {
-            xml.writeln('     <title type="sub" xml:lang="${langCodes[item.language]}">${item.text}</title>');
-
-          } else if (item.label == "Header") {
-            xml.writeln('     <head xml:lang="${langCodes[item.language]}">${item.text}</head>');
-            
-          } else if (item.label == "Paragraph") {
-            xml.writeln('     <p xml:lang="${langCodes[item.language]}">');
-            xml.writeln('       ${item.text}');
-            xml.writeln('     </p>');
-            
-          } else if (item.label == "Author") {
-            xml.writeln('     <author xml:lang="${langCodes[item.language]}" role="bookAuthor">${item.text}</author>');
-          }
-        }
-      }
-      xml.writeln('   </div>');
+    final location = await fs.getSaveLocation(suggestedName: 'pdf_annotations.xml');
+    if (location == null) {
+      _showError('Export cancelled');
+      return;
     }
-    xml.writeln(' </body>');
-    xml.writeln('</text>');
 
-    await _saveTextToFile(xml.toString());
+    await _exportAllToXmlPath(location.path, xmlText);
+  }
+
+  Future<void> exportZipped() async {
+    // Combine TextSelections and ImageAnnotations into one list
+    List<PageItem> pageItems = [..._selections.values, ..._imageAnnotations];
+
+    // Sort the list into pages
+    pageItems.sort(pageSort);
+    final Map<int, List<PageItem>> pages = {};
+    for (var item in pageItems) {
+      int num = item.pageNumber;
+      pages.update(num, (value) => value + [item], ifAbsent: () => [item]);
+    }
+
+    final xmlText = _buildExportXml(pages);
+
+    final location = await fs.getSaveLocation(suggestedName: 'pdf_export.zip');
+    if (location == null) {
+      _showError('Export cancelled');
+      return;
+    }
+
+    await _exportAllToZipPath(location.path, xmlText);
+  }
+
+  Future<void> _exportAllToZipPath(String zipFullPath, String xmlText) async {
+    try {
+      final archive = Archive();
+
+      // Add XML
+      final xmlBytes = Uint8List.fromList(utf8.encode(xmlText));
+      archive.addFile(ArchiveFile('pdf_annotations.xml', xmlBytes.length, xmlBytes));
+
+      // Add images
+      for (final imgAnn in _imageAnnotations) {
+        final bytes = imgAnn.imageBytes;
+        archive.addFile(ArchiveFile(imgAnn.fileName, bytes.length, bytes));
+      }
+
+      final zipped = ZipEncoder().encode(archive);
+      if (zipped == null) {
+        _showError('Failed to build ZIP');
+        return;
+      }
+
+      final out = fs.XFile.fromData(
+        Uint8List.fromList(zipped),
+        mimeType: 'application/zip',
+        name: p.basename(zipFullPath),
+      );
+      await out.saveTo(zipFullPath);
+
+      _showSnackBar('Exported ZIP to: $zipFullPath');
+    } catch (e) {
+      _showError('Failed to export ZIP: $e');
+    }
   }
 
   // ============================
